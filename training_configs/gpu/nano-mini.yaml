@@ -26,7 +26,7 @@ model:
       n_channels: 3
       width: 128
       height: 128
-    n_layer: 6
+    n_layer: 12
     n_cls: 64
     num_patches: 16
     n_channels: 32
@@ -44,7 +44,7 @@ model:
         attn_type: multi_query
       max_block_size: 320  # (256 for input + 64 for cls)
       is_sparse_attn: True
-      sparsity_factor: 0.25  # 1 - (1 - 0.25)^6 = 0.822
+      sparsity_factor: 0.5
       rotator_config:
         # ff_mult_factor * n_embed * n_embed params ->
         # 2 * num_experts * ff_mult_factor * n_embed * proj_features
@@ -56,10 +56,9 @@ model:
   decoder_config:
     enable_gradient_checkpointing: True
     n_layer: 12
-    block_size: 512
-    # 50257 (gpt2 tokenizer) + 2 special tokens for training <MSK> and <EOS>
-    #  + encoder vocab
-    vocab_size: 50259  # 50257 + 2
+    block_size: 256
+    # 50257 (gpt2 tokenizer) + 1 special tokens for training <MSK>
+    vocab_size: 50258   # 50257 + 1
     transformer_config:
       is_causal: True
       is_cross_attn: True
@@ -70,11 +69,11 @@ model:
         n_head: 8
         n_embd: 1024
         attn_type: multi_query
-      max_block_size: 512  # block size
+      max_block_size: 320  # block size
       is_sparse_attn: True
-      sparsity_factor: 0.5  # < 1 - (1 - 0.5)^12 = 0.9997 (less than this estimate because of causal mask)
+      sparsity_factor: 0.5
       rotator_config:
         num_experts: 4
         proj_features: 16
         gate_sizes: [ 32 ]
-        ff_mult_factor: 2
+        ff_mult_factor: 4
