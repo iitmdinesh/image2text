@@ -5,12 +5,12 @@ trainer:
   actual_vocab_size: 50257
 optimizer:
   lr: 6e-4
-  weight_decay: 1e-1
+  # weight_decay: 1e-1
 disable_flash: True
-batch_size: 18
-num_steps: 100
-num_val_steps: 10
-gradient_accumulation_steps: 2
+batch_size: 48
+num_steps: 50
+num_val_steps: 5
+gradient_accumulation_steps: 1
 # reset_moco_after_k_epochs: [1, 2]
 epochs: 20
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
@@ -26,7 +26,7 @@ model:
       n_channels: 3
       width: 128
       height: 128
-    n_layer: 12
+    n_layer: 24
     n_cls: 64
     num_patches: 16
     n_channels: 32
@@ -40,7 +40,7 @@ model:
         bias: False
         dropout: 0.1
         n_head: 8
-        n_embd: 512
+        n_embd: 1024
         attn_type: multi_query
       max_block_size: 320  # (256 for input + 64 for cls)
       is_sparse_attn: True
@@ -55,7 +55,7 @@ model:
         top_k: 2
   decoder_config:
     enable_gradient_checkpointing: True
-    n_layer: 12
+    n_layer: 24
     block_size: 256
     # 50257 (gpt2 tokenizer) + 1 special tokens for training <MSK>
     vocab_size: 50258   # 50257 + 1
