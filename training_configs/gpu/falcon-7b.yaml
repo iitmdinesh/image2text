@@ -1,0 +1,63 @@
+tokenizer_str: 'tiiuae/falcon-7b'
+trainer:
+  actual_vocab_size: 65024
+optimizer:
+  lr: 6e-4
+batch_size: 4
+# num_steps: 4
+gradient_accumulation_steps: 8
+epochs: 6
+#precision: 'no', 'fp8', 'fp16', 'bfp16'
+precision: 'fp16'
+model:
+  use_cross_attn: False
+  use_soft_prompting: True
+  no_repeat_n_grams: [2, 3, 4, 5]
+  vision_encoder_config:
+    enable_gradient_checkpointing: True
+    input:
+      n_channels: 3
+      width: 128
+      height: 128
+    n_layer: 6
+    n_cls: 64
+    num_patches: 16
+    n_channels: 32
+    feature_extractor_gate_sizes: [ 8, 16 ]
+    feature_extractor_kernel_size: [ 6, 6 ]
+    transformer_config:
+      is_causal: False
+      is_cross_attn: False
+      attn_config:
+        attn_dropout: 0.1
+        bias: False
+        dropout: 0.1
+        n_head: 8
+        n_embd: 512
+        attn_type: multi_query
+      max_block_size: 320  # (256 for input + 64 for cls)
+      is_sparse_attn: True
+      sparsity_factor: 0.25  # 1 - (1 - 0.25)^6 = 0.822
+      rotator_config:
+        # ff_mult_factor * n_embed * n_embed params ->
+        # 2 * num_experts * ff_mult_factor * n_embed * proj_features
+        num_experts: 4
+        proj_features: 16
+        gate_sizes: [ 32 ]
+        ff_mult_factor: 2
+        top_k: 2
+  decoder_config:
+    model_str: 'tiiuae/falcon-7b'
+    use_cross_attn: False
+    vocab_size: 65024
+    extra_tokens: 1  # only mask token is extra
+    load_in_4bit: True
+    prepare_for_kbit_training: True
+    enable_gradient_checkpointing: True
+    lora_spec:
+      enable_lora: True
+      r: 16
+      lora_alpha: 64
+      lora_dropout: 0.1
+      target_modules: ['query_key_value', 'dense', 'dense_h_to_4h', 'dense_4h_to_h']  # check if any further targets can be added
+      force_enable_update_modules: ['word_embeddings', 'lm_head']
