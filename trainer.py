@@ -65,6 +65,7 @@ def get_dataloader(tokenizer, batch_size, shuffle):
     txform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((128, 128)),
+        transforms.Normalize(mean=(0.4274, 0.4218, 0.3878), std=(0.2754, 0.2705, 0.2874)),
     ])
     ds: Dataset = load('hub://activeloop/flickr30k')
 
