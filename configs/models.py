@@ -94,8 +94,12 @@ class HuggingfaceDecoderConfig(BaseModel):
     lora_spec: LoraSpec
 
 
+class ViTConfig(BaseModel):
+    n_embd_out_vit: int
+
+
 class VisionEncoderDecoderConfig(BaseModel):
-    vision_encoder_config: VisionTransformerEncoderConfig
+    vision_encoder_config: Union[VisionTransformerEncoderConfig, ViTConfig]
     decoder_config: Union[TransformerDecoderConfig, HuggingfaceDecoderConfig]
     loose_match_decoder_state_dict: bool = False
     chkpt_path: Optional[str] = None

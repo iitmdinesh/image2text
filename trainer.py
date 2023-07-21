@@ -8,6 +8,7 @@ import torch.utils.data
 import yaml
 
 from configs.trainer import TrainingConfig
+from configs.models import ViTConfig
 from training.wrapper import ModelTrainerWrapper
 from training.utils import train_loop, val_loop, unpack_batch
 
@@ -15,6 +16,7 @@ from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from deeplake import load, Dataset
 from torchvision import transforms
+from torchvision.models import ViT_L_16_Weights
 
 
 from argparse import ArgumentParser
@@ -61,12 +63,12 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
         accelerator.print(gen)
 
 
-def get_dataloader(tokenizer, batch_size, shuffle):
-    txform = transforms.Compose([
+def get_dataloader(tokenizer, batch_size, shuffle, is_vit):
+    txforms = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((128, 128)),
         transforms.Normalize(mean=(0.4274, 0.4218, 0.3878), std=(0.2754, 0.2705, 0.2874)),
-    ])
+    ]) if not is_vit else ViT_L_16_Weights.IMAGENET1K_SWAG_LINEAR_V1.transforms()
     ds: Dataset = load('hub://activeloop/flickr30k')
 
     tokenizer.pad_token = tokenizer.eos_token
@@ -78,8 +80,9 @@ def get_dataloader(tokenizer, batch_size, shuffle):
                          padding='max_length')
 
     def _transform(x):
+        image = x['image'] if not is_vit else torch.tensor(x['image']).permute(2, 0, 1)
         result = {
-            'image': txform(x['image']),
+            'image': txforms(image),
         }
         for k in range(5):
             data = x[f'caption_{k}']
@@ -119,7 +122,8 @@ def main(args):
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         config.tokenizer_str, **kwargs)
 
-    train_dl, val_dl = get_dataloader(tokenizer, config.batch_size, config.shuffle)
+    train_dl, val_dl = get_dataloader(tokenizer, config.batch_size, config.shuffle,
+                                      isinstance(config.model.vision_encoder_config, ViTConfig))
 
     model_wrapper = ModelTrainerWrapper(
         model_config=config.model,

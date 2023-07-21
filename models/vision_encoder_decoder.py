@@ -9,7 +9,7 @@ from transformers import (
 )
 from configs.models import VisionEncoderDecoderConfig
 from object_models import VisionEncoderDecoderModelOutput
-from models.vision_transformer_encoder import VisionTransformerEncoder
+from models.encoder import Encoder
 from models.decoder import Decoder
 from models.utils import update_state_dict_from_partial_checkpoint
 
@@ -18,12 +18,12 @@ class VisionEncoderDecoder(nn.Module):
     """Encoder Decoder model for conditional generation"""
     def __init__(self,
                  config: VisionEncoderDecoderConfig,
-                 encoder: Optional[VisionTransformerEncoder] = None,
+                 encoder: Optional[Encoder] = None,
                  decoder: Optional[Decoder] = None,
                  ):
         super().__init__()
         self.config = config
-        encoder = encoder if encoder is not None else VisionTransformerEncoder(config.vision_encoder_config)
+        encoder = encoder if encoder is not None else Encoder.from_config(config.vision_encoder_config)
         self.space_for_prompt = encoder.num_outputs if config.use_soft_prompting else 0
         self.decoder = decoder if decoder is not None else \
             Decoder.from_config(config=config.decoder_config, loose=config.loose_match_decoder_state_dict)

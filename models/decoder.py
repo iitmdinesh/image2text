@@ -85,7 +85,7 @@ class Decoder(nn.Module, abc.ABC):
                 if any(k.endswith(w) for w in transposed):
                     # special treatment for the Conv1D weights we need to transpose
                     if k in sd:
-                        assert sd_hf[k].shape[::-1] == sd[k].shape
+                        assert sd_hf[k].shape[::-1] == sd[k].shape, k
                         with torch.no_grad():
                             sd[k].copy_(sd_hf[k].t())
                     else:
@@ -94,7 +94,7 @@ class Decoder(nn.Module, abc.ABC):
                 else:
                     if k in sd:
                         # vanilla copy over the other parameters
-                        assert sd_hf[k].shape == sd[k].shape
+                        assert sd_hf[k].shape == sd[k].shape, k
                         with torch.no_grad():
                             sd[k].copy_(sd_hf[k])
                     else:

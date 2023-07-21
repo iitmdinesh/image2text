@@ -69,7 +69,7 @@ model:
         n_head: 8
         n_embd: 1024
         attn_type: multi_query
-      max_block_size: 256  # block size
+      max_block_size: 320  # block size
       is_sparse_attn: True
       sparsity_factor: 0.5  # < 1 - (1 - 0.5)^6 = 0.984 (less than this estimate because of causal mask)
       rotator_config:

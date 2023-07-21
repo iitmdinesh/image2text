@@ -1,16 +1,56 @@
+from typing import Union
+
 import math
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from configs.models import VisionTransformerEncoderConfig
+from configs.models import VisionTransformerEncoderConfig, ViTConfig
 from models.layers import ConvMLP, TransformerBlock, LayerNormND, LayerNorm
+from torchvision.models import vit_l_16, ViT_L_16_Weights
 
 
-class VisionTransformerEncoder(nn.Module):
-    def __init__(self, config: VisionTransformerEncoderConfig):
+class Encoder(nn.Module):
+    def __init__(self, config):
         super().__init__()
         self.config = config
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        raise ValueError('Not implemented in base class!')
+
+    @classmethod
+    def from_config(cls, config: Union[VisionTransformerEncoderConfig, ViTConfig]):
+        if isinstance(config, ViTConfig):
+            return ViT(config)
+        elif isinstance(config, VisionTransformerEncoderConfig):
+            return VisionTransformerEncoder(config)
+        raise ValueError('Unknown config')
+
+
+class ViT(Encoder):
+    def __init__(self, config: ViTConfig):
+        super().__init__(config)
+        weights = ViT_L_16_Weights.IMAGENET1K_SWAG_LINEAR_V1
+        model = vit_l_16(weights=weights)
+        model.heads = nn.Linear(1024, config.n_embd_out_vit)
+        self.out_dim = config.n_embd_out_vit
+        self.model = model
+
+    def forward(self, images: torch.Tensor) -> torch.Tensor:
+        return self.model(images).reshape(-1, 1, self.out_dim)
+
+    @property
+    def num_outputs(self):
+        return 1
+
+    @property
+    def output_embed_dim(self):
+        return self.out_dim
+
+
+class VisionTransformerEncoder(Encoder):
+    def __init__(self, config: VisionTransformerEncoderConfig):
+        super().__init__(config)
         self.n_patches = n_patches = config.num_patches
         assert config.input.width % n_patches == 0
         assert config.input.height % n_patches == 0

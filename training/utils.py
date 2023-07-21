@@ -10,7 +10,6 @@ from smart_open import open as smart_open
 from contextlib import nullcontext
 
 from training.wrapper import ModelTrainerWrapper
-from transformers import PreTrainedTokenizer
 
 
 def normalize_label(input_ids, attn_mask, ignore_index):
@@ -108,7 +107,7 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
     device = accelerator.device
     loss_all = []
     metrics_all = {}
-    num_steps = len(val_dl)
+    num_steps = len(val_dl) if num_val_steps is None else num_val_steps
     if isinstance(model_wrapper, nn.parallel.DistributedDataParallel):
         val_step = model_wrapper.module.val_step
     else:
