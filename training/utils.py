@@ -10,6 +10,7 @@ from smart_open import open as smart_open
 from contextlib import nullcontext
 
 from training.wrapper import ModelTrainerWrapper
+from transformers import PreTrainedTokenizer
 
 
 def normalize_label(input_ids, attn_mask, ignore_index):
@@ -32,7 +33,6 @@ def unpack_batch(batch,
     return images, labels_0, labels_1, labels_2, labels_3, labels_4
 
 
-
 def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                                     ModelTrainerWrapper],
                optimizer: torch.optim.Optimizer,
@@ -41,7 +41,6 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                num_steps: Optional[int],
                accelerator: Accelerator,
                disable_flash: bool = False,
-               eos_token_id: Optional[int] = None,
                ignore_index: int = -100,
                reset_moco_after_k_epochs: Optional[List[int]] = None,
                logging_callback=None,
@@ -100,9 +99,9 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                                   ModelTrainerWrapper],
              val_dl: torch.utils.data.DataLoader,
              epoch: int,
+             num_val_steps: Optional[int],
              accelerator: Accelerator,
              disable_flash: bool = False,
-             eos_token_id: Optional[int] = None,
              ignore_index: int = -100,
              ):
     model_wrapper.eval()
@@ -116,6 +115,8 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
         val_step = model_wrapper.val_step
     with tqdm(val_dl, unit="batch", disable=not accelerator.is_local_main_process) as tepoch:
         for step, batch in enumerate(tepoch):
+            if num_val_steps is not None and num_val_steps == step:
+                break
             tepoch.set_description(f'Epoch: {epoch}')
             images, labels_0, labels_1, labels_2, labels_3, labels_4 = unpack_batch(batch,
                                                                                     ignore_index=ignore_index)

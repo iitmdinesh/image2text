@@ -1,5 +1,6 @@
 from typing import Union
 
+import torch
 import torch.nn as nn
 import torch.utils.data
 
@@ -8,13 +9,12 @@ import yaml
 
 from configs.trainer import TrainingConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, unpack_batch
+from training.utils import train_loop, val_loop, unpack_batch
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
-import deeplake
+from deeplake import load, Dataset
 from torchvision import transforms
-import torch
 
 
 from argparse import ArgumentParser
@@ -23,19 +23,19 @@ from argparse import ArgumentParser
 def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTrainerWrapper],
                accelerator,
                tokenizer,
-               train_dl,
+               val_dl,
                epoch,
                ignore_index,
                prompt='The',
                num_candidates=2,
                ):
     accelerator.print(f"Model perf at the end of the {epoch}-th epoch")
-    accelerator.print("Train:")
-    batch = next(iter(train_dl))
+    accelerator.print("Val:")
+    batch = next(iter(val_dl))
     images, labels_0, labels_1, labels_2, labels_3, labels_4 = unpack_batch(batch,
                                                                             ignore_index=ignore_index)
     device = accelerator.device
-    x = images.to(device)[:1].expand(num_candidates, -1, -1)
+    x = images.to(device)[:1].expand(num_candidates, -1, -1, -1)
     label_ = labels_0[0]
     model_wrapper = accelerator.unwrap_model(model_wrapper)
     with accelerator.autocast():
@@ -46,7 +46,7 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
                 tokenizer(text=prompt).input_ids,
                 dtype=torch.long).to(device).unsqueeze(0).expand(x.size(0), -1).contiguous()
 
-        result = model_wrapper.model.generate(x=x,
+        result = model_wrapper.model.generate(images=x,
                                               prompt_ids=decoded_ids,
                                               temperature=1.0,
                                               max_new_tokens=128,
@@ -61,12 +61,12 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
         accelerator.print(gen)
 
 
-def get_dataloader(tokenizer):
+def get_dataloader(tokenizer, batch_size, shuffle):
     txform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((128, 128)),
     ])
-    ds = deeplake.load('hub://activeloop/flickr30k')
+    ds: Dataset = load('hub://activeloop/flickr30k')
 
     tokenizer.pad_token = tokenizer.eos_token
 
@@ -87,13 +87,18 @@ def get_dataloader(tokenizer):
             result[f'attn_mask_{k}'] = tokenized.attention_mask.squeeze(0)
         return result
 
-    dl = ds.pytorch(batch_size=4, shuffle=False, num_workers=8, transform=_transform)
-    return dl
+    train_dl = ds.query("SELECT * WHERE ROW_NUMBER() < 27000"). \
+        pytorch(batch_size=batch_size, shuffle=shuffle, num_workers=0, transform=_transform,
+                buffer_size=256, use_local_cache=True)
+    val_dl = ds.query("SELECT * WHERE ROW_NUMBER() >= 27000 "). \
+        pytorch(batch_size=batch_size, shuffle=shuffle, num_workers=0, transform=_transform,
+                buffer_size=32, use_local_cache=True)
+    return train_dl, val_dl
 
 
 def main(args):
     obj = yaml.safe_load(open(args.config_file, 'r'))
-    config: TrainingConfig = TrainingConfig.model_validate(obj)
+    config: TrainingConfig = TrainingConfig.parse_obj(obj)
     accelerator = Accelerator(
         device_placement=True,
         split_batches=True,
@@ -104,7 +109,6 @@ def main(args):
 
     accelerator.print(config)
 
-
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(config.tokenizer_str)
     kwargs = {}
     if tokenizer.eos_token_id is None:
@@ -114,7 +118,7 @@ def main(args):
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         config.tokenizer_str, **kwargs)
 
-    train_dl = get_dataloader(tokenizer)
+    train_dl, val_dl = get_dataloader(tokenizer, config.batch_size, config.shuffle)
 
     model_wrapper = ModelTrainerWrapper(
         model_config=config.model,
@@ -128,8 +132,8 @@ def main(args):
         lr=config.optimizer.lr,
         weight_decay=config.optimizer.weight_decay,
     )
-    model_wrapper, optimizer, train_dl = \
-        accelerator.prepare(model_wrapper, optimizer, train_dl, device_placement=[False, True, True])
+    model_wrapper, optimizer, train_dl, val_dl = \
+        accelerator.prepare(model_wrapper, optimizer, train_dl, val_dl, device_placement=[False, True, True, True])
     for epoch in range(config.epochs):
         train_loop(model_wrapper,
                    optimizer,
@@ -138,11 +142,20 @@ def main(args):
                    config.num_steps,
                    accelerator,
                    disable_flash=config.disable_flash,
-                   eos_token_id=None,
                    ignore_index=config.ignore_index,
                    reset_moco_after_k_epochs=config.reset_moco_after_k_epochs,
                    chckpt_fname=args.chkpt_file)
-        eval_model(model_wrapper, accelerator, tokenizer, train_dl, epoch, config.ignore_index)
+        eval_model(model_wrapper, accelerator, tokenizer, val_dl, epoch, config.ignore_index)
+        loss, metrics = val_loop(
+            model_wrapper,
+            val_dl,
+            epoch,
+            config.num_val_steps,
+            accelerator,
+            disable_flash=config.disable_flash,
+            ignore_index=config.ignore_index
+        )
+        accelerator.print(f'Epoch: {epoch}, loss: {loss}, metrics: {metrics}')
 
 
 def parse_args():

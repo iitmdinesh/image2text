@@ -28,6 +28,7 @@ class TrainingConfig(BaseModel):
     gradient_accumulation_steps: int = 4
     epochs: int = 6
     num_steps: Optional[int] = None
+    num_val_steps: Optional[int] = None
     precision: str = 'fp16'
     add_eos: bool = True
     tokenizer_str: str

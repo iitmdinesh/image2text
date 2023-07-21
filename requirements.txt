@@ -1,6 +1,6 @@
 torch
 einops
-deeplake
+deeplake[enterprise]
 accelerate
 pydantic
 pyyaml
