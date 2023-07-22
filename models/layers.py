@@ -397,3 +397,59 @@ class TransformerBlock(nn.Module):
         x_final[:, idx] = x
         x_final[:, not_idx] = x_orig[:, not_idx] + self.null_connector(x_orig[:, not_idx])
         return x_final
+
+
+class AdvancedPositionalBias(nn.Module):
+    """
+    Advanced postional bias using linear layer per position
+    """
+    def __init__(self, context_width: int, emb_dim: int, emb_dim_out: Optional[int] = None):
+        super().__init__()
+        self.emb_dim_out = emb_dim_out if emb_dim_out is not None else emb_dim
+        self.pos_encoding_weight = nn.Embedding(context_width, emb_dim * self.emb_dim_out)
+        self.pos_encoding_bias = nn.Embedding(context_width, self.emb_dim_out)
+
+    def forward(self, x: torch.Tensor):
+        batch_size, contex_width, emb_dim = x.shape
+        device = x.device
+        position_index = torch.arange(0, contex_width, device=device)
+        y = self.pos_encoding_weight(position_index). \
+            view(1, contex_width, self.emb_dim_out, emb_dim). \
+            expand(batch_size, -1, -1, -1). \
+            contiguous(). \
+            view(-1, self.emb_dim_out, emb_dim)
+        z = self.pos_encoding_bias(position_index). \
+            view(1, contex_width, self.emb_dim_out). \
+            expand(batch_size, -1, -1). \
+            contiguous(). \
+            view(-1, self.emb_dim_out)
+        return ((y @ x.view(-1, emb_dim, 1)).squeeze(-1) + z).view(batch_size, -1, self.emb_dim_out).contiguous()
+
+
+class AdvancedPositionalBiasMLP(nn.Module):
+    """Further extension of AdvancedPositionalBias using an MLP instead of linear layer"""
+    def __init__(self,
+                 context_width: int,
+                 in_features: int,
+                 out_features: int,
+                 gate_sizes: Optional[Tuple[int, ...]] = None,
+                 add_residual_connection: bool = True,
+                 ):
+        super().__init__()
+        self.add_residual_connection = add_residual_connection
+        gate_sizes = gate_sizes if gate_sizes is not None else []
+        previous_shape = in_features
+        blocks = []
+        for shape in gate_sizes:
+            blocks.append(AdvancedPositionalBias(context_width, previous_shape, shape))
+            blocks.append(nn.GELU(approximate="tanh"))
+            previous_shape = shape
+        blocks.append(AdvancedPositionalBias(context_width, previous_shape, out_features))
+        self.model = nn.Sequential(*blocks)
+        if self.add_residual_connection:
+            self.residual_connector = AdvancedPositionalBias(context_width, in_features, out_features)
+        else:
+            self.residual_connector = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x) + self.residual_connector(x) if self.add_residual_connection else self.model(x)

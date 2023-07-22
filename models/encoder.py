@@ -6,7 +6,13 @@ import torch.nn as nn
 import torch.utils.checkpoint
 
 from configs.models import VisionTransformerEncoderConfig, ViTConfig
-from models.layers import ConvMLP, TransformerBlock, LayerNormND, LayerNorm
+from models.layers import (
+    ConvMLP,
+    TransformerBlock,
+    LayerNormND,
+    LayerNorm,
+    AdvancedPositionalBiasMLP,
+)
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 
 
@@ -34,14 +40,20 @@ class ViT(Encoder):
         model = vit_b_16(weights=weights)
         model.heads = nn.Linear(768, config.n_embd_out_vit)
         self.out_dim = config.n_embd_out_vit
+        self.n_cls = config.n_cls
+        self.proj = AdvancedPositionalBiasMLP(context_width=config.n_cls,
+                                              in_features=config.n_embd_out_vit,
+                                              out_features=config.n_embd_out_vit,
+                                              gate_sizes=config.gate_sizes,
+                                              add_residual_connection=True)
         self.model = model
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        return self.model(images).reshape(-1, 1, self.out_dim)
+        return self.model(images).unsqueeze(-2).expand(-1, self.n_cls, -1)
 
     @property
     def num_outputs(self):
-        return 1
+        return self.n_cls
 
     @property
     def output_embed_dim(self):
