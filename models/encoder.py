@@ -32,6 +32,14 @@ class Encoder(nn.Module):
             return VisionTransformerEncoder(config)
         raise ValueError('Unknown config')
 
+    @property
+    def num_outputs(self):
+        raise ValueError('Not implemented in base class')
+
+    @property
+    def output_embed_dim(self):
+        raise ValueError('Not implemented in base class')
+
 
 class ViT(Encoder):
     def __init__(self, config: ViTConfig):

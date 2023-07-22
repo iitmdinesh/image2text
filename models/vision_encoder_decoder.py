@@ -60,8 +60,9 @@ class VisionEncoderDecoder(nn.Module):
         bs = encoder_output.size(0)
         if attn_msk is not None:
             if len(attn_msk.size()) == 2:
+                s = attn_msk.size(1)
                 if attn_msk.size(0) == bs:
-                    attn_msk = repeat(attn_msk, 'bs s -> bs h s l', h=1, l=1)
+                    attn_msk = repeat(attn_msk, 'bs s -> bs h s l', h=1, l=s)
                 else:
                     attn_msk = repeat(attn_msk, 's l -> bs h s l', bs=bs, h=1)
             elif len(attn_msk.size()) == 3:
@@ -78,6 +79,7 @@ class VisionEncoderDecoder(nn.Module):
             attn_mask_causal,
             's l -> b h s l', b=1, h=1
         )
+        print(attn_msk, attn_mask_causal)
         attn_msk = attn_mask_causal if attn_msk is None else torch.logical_and(attn_msk, attn_mask_causal)
 
         if self.use_soft_prompting:
