@@ -40,10 +40,12 @@ class Decoder(nn.Module, abc.ABC):
         super().__init__()
 
     @classmethod
-    def from_config(cls, config: Union[TransformerDecoderConfig, HuggingfaceDecoderConfig], loose=False):
+    def from_config(cls, config: Union[TransformerDecoderConfig, HuggingfaceDecoderConfig],
+                    loose=False,
+                    space_for_prompt=0):
         if isinstance(config, TransformerDecoderConfig):
             if config.pretrained_model is None:
-                return TransformerDecoder(config)
+                return TransformerDecoder(config, space_for_prompt)
             model_type = config.pretrained_model
             config_args = {
                 ModelType.GPT2: dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
@@ -65,7 +67,7 @@ class Decoder(nn.Module, abc.ABC):
                        config.transformer_config.rotator_config.ff_mult == 4, 'provided configs do not match the pretrained ' \
                                                                        'model'
             assert config.vocab_size >= 50257, 'vocab should not shrink'
-            model = TransformerDecoder(config)
+            model = TransformerDecoder(config, space_for_prompt)
             sd = model.state_dict()
 
             model_hf: GPT2LMHeadModel = GPT2LMHeadModel.from_pretrained(model_type.value)
@@ -142,7 +144,7 @@ class Decoder(nn.Module, abc.ABC):
 
 
 class TransformerDecoder(Decoder):
-    def __init__(self, config: TransformerDecoderConfig):
+    def __init__(self, config: TransformerDecoderConfig, space_for_prompt: int):
         super().__init__()
         self.config = config
         self.enable_gradient_checkpointing = config.enable_gradient_checkpointing
@@ -155,6 +157,7 @@ class TransformerDecoder(Decoder):
             h=nn.ModuleList([TransformerBlock(
                 mutate_transformer_config(config.transformer_config, depth, config.skip_alternate_cross_attn),
                 depth,
+                space_for_prompt,
             )
                 for depth in range(config.n_layer)
             ]),

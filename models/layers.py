@@ -305,7 +305,7 @@ class _MoEMLP(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, config: TransformerConfig, seed: Optional[int] = None):
+    def __init__(self, config: TransformerConfig, seed: Optional[int] = None, n_cls: int = 0):
         super().__init__()
         self.is_causal = config.is_causal
         self.ln_1 = LayerNorm(config.attn_config.n_embd, bias=config.attn_config.bias)
@@ -334,7 +334,10 @@ class TransformerBlock(nn.Module):
             n_non_zeros = int(config.sparsity_factor * config.max_block_size)
             # full_mask = torch.randperm(config.max_block_size, dtype=torch.long)
             gen = np.random.Generator(np.random.PCG64(seed=seed)) if seed is not None else np.random.default_rng()
-            full_mask = torch.tensor(gen.permutation(config.max_block_size).astype(np.int64), dtype=torch.long)
+            full_mask = torch.cat((torch.arange(0, n_cls),
+                                   torch.tensor(
+                                       gen.permutation(config.max_block_size - n_cls) + n_cls, dtype=torch.long)
+                                   ), dim=0)
             # sort is very important for maintaining causality in attention!!!
             self.register_buffer('input_mask_idx', full_mask[:n_non_zeros].sort().values, persistent=True)
             self.register_buffer('input_mask_not_idx', full_mask[n_non_zeros:].sort().values, persistent=True)

@@ -8,8 +8,8 @@ optimizer:
   # weight_decay: 1e-1
 disable_flash: True
 batch_size: 48
-num_steps: 50
-num_val_steps: 5
+num_steps: 200
+num_val_steps: 20
 gradient_accumulation_steps: 1
 # reset_moco_after_k_epochs: [1, 2]
 epochs: 20

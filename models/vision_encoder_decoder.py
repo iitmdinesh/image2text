@@ -26,7 +26,9 @@ class VisionEncoderDecoder(nn.Module):
         encoder = encoder if encoder is not None else Encoder.from_config(config.vision_encoder_config)
         self.space_for_prompt = encoder.num_outputs if config.use_soft_prompting else 0
         self.decoder = decoder if decoder is not None else \
-            Decoder.from_config(config=config.decoder_config, loose=config.loose_match_decoder_state_dict)
+            Decoder.from_config(config=config.decoder_config,
+                                loose=config.loose_match_decoder_state_dict,
+                                space_for_prompt=self.space_for_prompt)
         decoder_n_embd = self.decoder.n_embd
         if encoder.output_embed_dim != decoder_n_embd:
             self.encoder = nn.Sequential(

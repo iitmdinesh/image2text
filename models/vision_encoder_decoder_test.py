@@ -14,11 +14,11 @@ from configs.models import (
 )
 
 
-class EncoderDecoderTest(unittest.TestCase):
+class VisionEncoderDecoderTest(unittest.TestCase):
     def setUp(self) -> None:
         pass
 
-    def test_encoder_decoder(self):
+    def test_vision_encoder_decoder(self):
         decoder_transformer_config = TransformerConfig(
             rotator_config=MoEConfig(
                 num_experts=4,
