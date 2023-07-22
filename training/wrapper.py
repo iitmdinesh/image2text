@@ -58,8 +58,7 @@ class ModelTrainerWrapper(nn.Module):
         for model_pair in self._model_pairs:
             for (n1, param), (n2, param_m) in zip(model_pair[0].named_parameters(), model_pair[1].named_parameters()):
                 assert n1 == n2
-                if not n1.startswith('scorer'):
-                    param_m.data = param_m.data * self.momentum + param.data * (1. - self.momentum)
+                param_m.data = param_m.data * self.momentum + param.data * (1. - self.momentum)
 
     def forward(self, x, input_ids, attn_msk=None) -> Tuple[torch.Tensor, torch.Tensor]:
         output = self.model(images=x, ids=input_ids, attn_msk=attn_msk)

@@ -13,6 +13,9 @@ from training.wrapper import ModelTrainerWrapper
 
 
 def normalize_label(input_ids, attn_mask, ignore_index):
+    to_attd = attn_mask.sum(dim=-1).clamp(0, attn_mask.size(-1) - 1).unsqueeze(-1)
+    linear = torch.arange(0, attn_mask.size(-1), device=to_attd.device).unsqueeze(0)
+    attn_mask = linear <= to_attd
     return torch.where(attn_mask.bool(), input_ids, ignore_index * torch.ones_like(input_ids))
 
 
