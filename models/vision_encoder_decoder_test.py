@@ -32,7 +32,7 @@ class VisionEncoderDecoderTest(unittest.TestCase):
                 n_embd=64,
                 n_head=4,
             ),
-            is_causal=True,
+            is_causal=False,
             is_cross_attn=True,
         )
         decoder_config = TransformerDecoderConfig(

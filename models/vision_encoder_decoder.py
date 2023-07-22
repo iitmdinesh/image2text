@@ -69,6 +69,17 @@ class VisionEncoderDecoder(nn.Module):
                     attn_msk = repeat(attn_msk, 'bs s l -> bs h s l', h=1)
                 else:
                     attn_msk = repeat(attn_msk, 'h s l -> bs h s l', bs=bs)
+
+        # decoder is causal, so add this
+        L = ids.size(-1)
+        device = ids.device
+        attn_mask_causal = torch.ones((L, L), device=device, dtype=torch.bool).tril(diagonal=0)
+        attn_mask_causal = repeat(
+            attn_mask_causal,
+            's l -> b h s l', b=1, h=1
+        )
+        attn_msk = attn_mask_causal if attn_msk is None else attn_msk + attn_mask_causal
+
         if self.use_soft_prompting:
             inputs_embeds = torch.cat(
                 (encoder_output, self.decoder.get_inputs_embeds(ids)),
@@ -79,7 +90,7 @@ class VisionEncoderDecoder(nn.Module):
                 _, h, s, _ = attn_msk.size()
                 device = encoder_output.device
                 attn_msk_new = -float('inf') * torch.ones((bs, h, ncls + s, ncls + s), device=device)
-                attn_msk_new[..., :ncls, :] = 1
+                attn_msk_new[..., :ncls, :] = 0
                 attn_msk_new[..., ncls:, ncls:] = attn_msk.masked_fill(~attn_msk, -float('inf')).float()
                 attn_msk = attn_msk_new[..., :self.decoder.block_size, :self.decoder.block_size].contiguous()
             else:
