@@ -47,9 +47,13 @@ class ViT(Encoder):
                                               gate_sizes=config.gate_sizes,
                                               add_residual_connection=True)
         self.model = model
+        self.refine = config.refine_base_model
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        return self.model(images).unsqueeze(-2).expand(-1, self.n_cls, -1)
+        x = self.model(images)
+        if not self.refine:
+            x = x.detach()
+        return x.unsqueeze(-2).expand(-1, self.n_cls, -1)
 
     @property
     def num_outputs(self):

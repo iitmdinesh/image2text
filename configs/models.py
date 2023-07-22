@@ -95,6 +95,7 @@ class HuggingfaceDecoderConfig(BaseModel):
 
 
 class ViTConfig(BaseModel):
+    refine_base_model: bool = True
     n_embd_out_vit: int
     n_cls: int
     gate_sizes: Optional[Tuple[int, ...]] = None
