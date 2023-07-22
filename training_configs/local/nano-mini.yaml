@@ -1,7 +1,7 @@
 tokenizer_str: 'gpt2'
 trainer:
-  moco_momentum: 0.9
-  moco_alpha: 0.4
+#  moco_momentum: 0.9
+#  moco_alpha: 0.4
   actual_vocab_size: 50257
 optimizer:
   lr: 6e-4
@@ -11,7 +11,7 @@ num_steps: 64
 num_val_steps: 8
 shuffle: True
 gradient_accumulation_steps: 4
-reset_moco_after_k_epochs: [1, 2]
+#reset_moco_after_k_epochs: [1, 2]
 epochs: 20
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'no'

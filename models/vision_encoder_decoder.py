@@ -27,8 +27,8 @@ class VisionEncoderDecoder(nn.Module):
         self.space_for_prompt = encoder.num_outputs if config.use_soft_prompting else 0
         self.decoder = decoder if decoder is not None else \
             Decoder.from_config(config=config.decoder_config, loose=config.loose_match_decoder_state_dict)
-        decoder_n_embd = config.decoder_config.transformer_config.attn_config.n_embd
-        if encoder.output_embed_dim != config.decoder_config.transformer_config.attn_config.n_embd:
+        decoder_n_embd = self.decoder.n_embd
+        if encoder.output_embed_dim != decoder_n_embd:
             self.encoder = nn.Sequential(
                 encoder,
                 nn.Linear(encoder.output_embed_dim, decoder_n_embd, bias=False),
@@ -80,6 +80,15 @@ class VisionEncoderDecoder(nn.Module):
                 attn_msk_new[..., :ncls, :] = 1
                 attn_msk_new[..., ncls:, ncls:] = attn_msk.masked_fill(~attn_msk, -float('inf')).float()
                 attn_msk = attn_msk_new[..., :self.decoder.block_size, :self.decoder.block_size].contiguous()
+            else:
+                bs, ncls, _ = encoder_output.size()
+                h = 1
+                n_cls_plus_s = inputs_embeds.size(-2)
+                device = encoder_output.device
+                attn_msk = -float('inf') * torch.ones((bs, h, n_cls_plus_s, n_cls_plus_s), device=device)
+                attn_msk[..., :ncls, :] = 0
+                attn_msk[..., ncls:, ncls:] = 0
+                attn_msk = attn_msk[..., :self.decoder.block_size, :self.decoder.block_size].contiguous()
             ids = None
             offset = encoder_output.size(-2)
         else:

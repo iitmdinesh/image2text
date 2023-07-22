@@ -5,6 +5,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+import transformers
 
 from configs.models import (
     TransformerDecoderConfig,
@@ -135,6 +136,10 @@ class Decoder(nn.Module, abc.ABC):
     def block_size(self):
         raise ValueError('not implemented in the base class')
 
+    @property
+    def n_embd(self):
+        raise ValueError('not implemented in the base class')
+
 
 class TransformerDecoder(Decoder):
     def __init__(self, config: TransformerDecoderConfig):
@@ -244,6 +249,9 @@ class TransformerDecoder(Decoder):
             cross_attn_inputs,
             attn_msk,
         )
+    @property
+    def n_embd(self):
+        return self.config.transformer_config.attn_config.n_embd
 
 
 class HuggingfaceDecoder(Decoder, abc.ABC):
@@ -281,6 +289,7 @@ class HuggingfaceDecoder(Decoder, abc.ABC):
                                                                       quantization_config=bnb_config,
                                                                       trust_remote_code=True,
                                                                       **kwargs)
+        self.hf_config = model.config
         model.resize_token_embeddings(config.vocab_size + config.extra_tokens)
 
         if config.enable_gradient_checkpointing:
@@ -352,6 +361,10 @@ class GPT2HuggingfaceDecoder(HuggingfaceDecoder):
     def block_size(self):
         return 1024
 
+    @property
+    def n_embd(self):
+        return self.hf_config.n_embd
+
 
 class FalconHuggingfaceDecoder(HuggingfaceDecoder):
     def __init__(self, config: HuggingfaceDecoderConfig):
@@ -365,3 +378,7 @@ class FalconHuggingfaceDecoder(HuggingfaceDecoder):
     @property
     def block_size(self):
         return 2048
+
+    @property
+    def n_embd(self):
+        return self.hf_config.hidden_size
