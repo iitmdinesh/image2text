@@ -78,7 +78,7 @@ class VisionEncoderDecoder(nn.Module):
             attn_mask_causal,
             's l -> b h s l', b=1, h=1
         )
-        attn_msk = attn_mask_causal if attn_msk is None else attn_msk + attn_mask_causal
+        attn_msk = attn_mask_causal if attn_msk is None else torch.logical_and(attn_msk, attn_mask_causal)
 
         if self.use_soft_prompting:
             inputs_embeds = torch.cat(
@@ -90,16 +90,22 @@ class VisionEncoderDecoder(nn.Module):
                 _, h, s, _ = attn_msk.size()
                 device = encoder_output.device
                 attn_msk_new = -float('inf') * torch.ones((bs, h, ncls + s, ncls + s), device=device)
+                # everyone can attend to cls tokens
                 attn_msk_new[..., :ncls, :] = 0
-                attn_msk_new[..., ncls:, ncls:] = attn_msk.masked_fill(~attn_msk, -float('inf')).float()
+                # non-cls can be attended by non-cls attn_msk permitting
+                attn_msk = attn_msk.masked_fill(~attn_msk, -float('inf')).float()
+                attn_msk[attn_msk == 1] = 0
+                attn_msk_new[..., ncls:, ncls:] = attn_msk
                 attn_msk = attn_msk_new[..., :self.decoder.block_size, :self.decoder.block_size].contiguous()
             else:
                 bs, ncls, _ = encoder_output.size()
                 h = 1
-                n_cls_plus_s = inputs_embeds.size(-2)
+                s = ids.size(-1)
                 device = encoder_output.device
-                attn_msk = -float('inf') * torch.ones((bs, h, n_cls_plus_s, n_cls_plus_s), device=device)
+                attn_msk = -float('inf') * torch.ones((bs, h, ncls + s, ncls + s), device=device)
+                # everyone can attend to cls tokens
                 attn_msk[..., :ncls, :] = 0
+                # non-cls can be attended by non-cls
                 attn_msk[..., ncls:, ncls:] = 0
                 attn_msk = attn_msk[..., :self.decoder.block_size, :self.decoder.block_size].contiguous()
             ids = None

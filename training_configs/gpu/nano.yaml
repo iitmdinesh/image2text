@@ -28,8 +28,6 @@ model:
     feature_extractor_gate_sizes: [ 8, 16 ]
     feature_extractor_kernel_size: [ 6, 6 ]
     transformer_config:
-      is_causal: False
-      is_cross_attn: False
       attn_config:
         attn_dropout: 0.1
         bias: False
@@ -56,7 +54,6 @@ model:
     # 50257 (gpt2 tokenizer) + 1 special token1 for training <MSK>
     vocab_size: 50258
     transformer_config:
-      is_causal: True
       is_cross_attn: True
       attn_config:
         attn_dropout: 0.1
