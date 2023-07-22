@@ -16,7 +16,7 @@ from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from deeplake import load, Dataset
 from torchvision import transforms
-from torchvision.models import ViT_L_16_Weights
+from torchvision.models import ViT_B_16_Weights
 
 
 from argparse import ArgumentParser
@@ -28,7 +28,7 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
                val_dl,
                epoch,
                ignore_index,
-               prompt='The',
+               prompt='A',
                num_candidates=2,
                ):
     accelerator.print(f"Model perf at the end of the {epoch}-th epoch")
@@ -68,7 +68,7 @@ def get_dataloader(tokenizer, batch_size, shuffle, is_vit):
         transforms.ToTensor(),
         transforms.Resize((128, 128)),
         transforms.Normalize(mean=(0.4274, 0.4218, 0.3878), std=(0.2754, 0.2705, 0.2874)),
-    ]) if not is_vit else ViT_L_16_Weights.IMAGENET1K_SWAG_LINEAR_V1.transforms()
+    ]) if not is_vit else ViT_B_16_Weights.IMAGENET1K_SWAG_LINEAR_V1.transforms()
     ds: Dataset = load('hub://activeloop/flickr30k')
 
     tokenizer.pad_token = tokenizer.eos_token

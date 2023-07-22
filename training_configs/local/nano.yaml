@@ -3,6 +3,8 @@ trainer:
   # moco_momentum: 0.9
   # moco_alpha: 0.4
   actual_vocab_size: 50257
+  mask_fraction: 0.0
+  random_mask_fraction: 0.0
 optimizer:
   lr: 6e-4
 #  weight_decay: 1e-1

@@ -7,7 +7,7 @@ import torch.utils.checkpoint
 
 from configs.models import VisionTransformerEncoderConfig, ViTConfig
 from models.layers import ConvMLP, TransformerBlock, LayerNormND, LayerNorm
-from torchvision.models import vit_l_16, ViT_L_16_Weights
+from torchvision.models import vit_b_16, ViT_B_16_Weights
 
 
 class Encoder(nn.Module):
@@ -30,9 +30,9 @@ class Encoder(nn.Module):
 class ViT(Encoder):
     def __init__(self, config: ViTConfig):
         super().__init__(config)
-        weights = ViT_L_16_Weights.IMAGENET1K_SWAG_LINEAR_V1
-        model = vit_l_16(weights=weights)
-        model.heads = nn.Linear(1024, config.n_embd_out_vit)
+        weights = ViT_B_16_Weights.IMAGENET1K_SWAG_LINEAR_V1
+        model = vit_b_16(weights=weights)
+        model.heads = nn.Linear(768, config.n_embd_out_vit)
         self.out_dim = config.n_embd_out_vit
         self.model = model
 
