@@ -68,7 +68,7 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                     with accelerator.accumulate(model_wrapper):
                         for labels in [labels_0, labels_1, labels_2, labels_3, labels_4]:
                             loss, metrics = train_step(images, labels)
-                            accelerator.backward(loss)
+                            accelerator.backward(loss / 5.0)
                             optimizer.step()
                             optimizer.zero_grad()
 
