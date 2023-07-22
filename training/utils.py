@@ -66,16 +66,21 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
             with ctx:
                 with accelerator.autocast():
                     with accelerator.accumulate(model_wrapper):
+                        loss_all = 0
+                        metrics_all = {}
                         for labels in [labels_0, labels_1, labels_2, labels_3, labels_4]:
                             loss, metrics = train_step(images, labels)
-                            accelerator.backward(loss / 5.0)
-                            optimizer.step()
-                            optimizer.zero_grad()
+                            loss_all = loss_all + loss / 5.0
+                            for k in metrics:
+                                metrics_all[k] = metrics_all.setdefault(k, 0.0) + metrics[k] / 5.0
+                        accelerator.backward(loss_all)
+                        optimizer.step()
+                        optimizer.zero_grad()
 
-            tepoch.set_postfix(**{k: v.cpu().item() for k, v in metrics.items()})
+            tepoch.set_postfix(**{k: v.cpu().item() for k, v in metrics_all.items()})
             if accelerator.is_local_main_process:
                 if logging_callback is not None:
-                    logging_callback({k: v.cpu().item() for k, v in metrics.items()}, batch=step, epoch=epoch)
+                    logging_callback({k: v.cpu().item() for k, v in metrics_all.items()}, batch=step, epoch=epoch)
 
     if reset_moco_after_k_epochs is not None and (epoch + 1) in reset_moco_after_k_epochs:
         reset_method()
