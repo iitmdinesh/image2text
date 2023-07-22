@@ -1,12 +1,14 @@
-tokenizer_str: 'gpt2-large'
+tokenizer_str: 'gpt2'
 trainer:
   actual_vocab_size: 50257
+  # mask_fraction: 0.0
+  # random_mask_fraction: 0.0
 optimizer:
   lr: 6e-4
-batch_size: 8
-num_steps: 50
-num_val_steps: 5
-gradient_accumulation_steps: 2
+batch_size: 10
+num_steps: 64
+num_val_steps: 8
+gradient_accumulation_steps: 1
 epochs: 20
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'fp16'
@@ -17,52 +19,71 @@ model:
   no_repeat_n_grams: [2, 3, 4, 5]
   loose_match_decoder_state_dict: True
   vision_encoder_config:
-    enable_gradient_checkpointing: True
-    input:
-      n_channels: 3
-      width: 128
-      height: 128
-    n_layer: 12
-    n_cls: 64
-    num_patches: 16
-    n_channels: 32
-    feature_extractor_gate_sizes: [ 8, 16 ]
-    feature_extractor_kernel_size: [ 6, 6 ]
-    transformer_config:
-      attn_config:
-        attn_dropout: 0.1
-        bias: False
-        dropout: 0.1
-        n_head: 8
-        n_embd: 512
-        attn_type: multi_query
-      max_block_size: 320  # (256 for input + 64 for cls)
-      is_sparse_attn: True
-      sparsity_factor: 0.25  # 1 - (1 - 0.25)^6 = 0.822
-      rotator_config:
-        # ff_mult_factor * n_embed * n_embed params ->
-        # 2 * num_experts * ff_mult_factor * n_embed * proj_features
-        num_experts: 4
-        proj_features: 16
-        gate_sizes: [ 32 ]
-        ff_mult_factor: 2
-        top_k: 2
+    n_embd_out_vit: 768
+    n_cls: 16
+    gate_sizes: [1024]
+    # enable_gradient_checkpointing: True
+    # input:
+    #   n_channels: 3
+    #   width: 128
+    #   height: 128
+    # n_layer: 12
+    # n_cls: 64
+    # num_patches: 16
+    # n_channels: 32
+    # feature_extractor_gate_sizes: [ 8, 16 ]
+    # feature_extractor_kernel_size: [ 6, 6 ]
+    # transformer_config:
+    #   attn_config:
+    #     attn_dropout: 0.1
+    #     bias: False
+    #     dropout: 0.1
+    #     n_head: 8
+    #     n_embd: 512
+    #     attn_type: multi_query
+    #   max_block_size: 320  # (256 for input + 64 for cls)
+    #   is_sparse_attn: True
+    #   sparsity_factor: 0.25  # 1 - (1 - 0.25)^6 = 0.822
+    #   rotator_config:
+    #     # ff_mult_factor * n_embed * n_embed params ->
+    #     # 2 * num_experts * ff_mult_factor * n_embed * proj_features
+    #     num_experts: 4
+    #     proj_features: 16
+    #     gate_sizes: [ 32 ]
+    #     ff_mult_factor: 2
+    #     top_k: 2
   decoder_config:
-    pretrained_model: gpt2-large
-    enable_gradient_checkpointing: True
-    n_layer: 36
+    pretrained_model: gpt2
+    n_layer: 12
     block_size: 1024
-    # 50257 (gpt2 tokenizer) + 1 special token1 for training <MSK>
-    vocab_size: 50258
+    vocab_size: 50259
     transformer_config:
       is_cross_attn: True
       attn_config:
         attn_dropout: 0.1
         bias: True
         dropout: 0.1
-        n_head: 20
-        n_embd: 1280
+        n_head: 12
+        n_embd: 768
         attn_type: multi_head
       is_sparse_attn: False
       rotator_config:
         ff_mult: 4
+    # pretrained_model: gpt2-large
+    # enable_gradient_checkpointing: True
+    # n_layer: 36
+    # block_size: 1024
+    # # 50257 (gpt2 tokenizer) + 1 special token1 for training <MSK>
+    # vocab_size: 50258
+    # transformer_config:
+    #   is_cross_attn: True
+    #   attn_config:
+    #     attn_dropout: 0.1
+    #     bias: True
+    #     dropout: 0.1
+    #     n_head: 20
+    #     n_embd: 1280
+    #     attn_type: multi_head
+    #   is_sparse_attn: False
+    #   rotator_config:
+    #     ff_mult: 4
