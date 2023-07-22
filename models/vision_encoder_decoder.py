@@ -79,7 +79,6 @@ class VisionEncoderDecoder(nn.Module):
             attn_mask_causal,
             's l -> b h s l', b=1, h=1
         )
-        print(attn_msk, attn_mask_causal)
         attn_msk = attn_mask_causal if attn_msk is None else torch.logical_and(attn_msk, attn_mask_causal)
 
         if self.use_soft_prompting:
