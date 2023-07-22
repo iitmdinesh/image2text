@@ -96,6 +96,7 @@ class HuggingfaceDecoderConfig(BaseModel):
 
 class ViTConfig(BaseModel):
     n_embd_out_vit: int
+    train: bool = False
 
 
 class VisionEncoderDecoderConfig(BaseModel):

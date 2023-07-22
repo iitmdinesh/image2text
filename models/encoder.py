@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
+from contextlib import nullcontext
+
 from configs.models import VisionTransformerEncoderConfig, ViTConfig
 from models.layers import ConvMLP, TransformerBlock, LayerNormND, LayerNorm
 from torchvision.models import vit_l_16, ViT_L_16_Weights
@@ -35,9 +37,16 @@ class ViT(Encoder):
         model.heads = nn.Linear(1024, config.n_embd_out_vit)
         self.out_dim = config.n_embd_out_vit
         self.model = model
+        self.is_train = config.train
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        return self.model(images).reshape(-1, 1, self.out_dim)
+        if self.is_train:
+            ctx = nullcontext()
+        else:
+            ctx = torch.no_grad()
+        with ctx:
+            out = self.model(images).reshape(-1, 1, self.out_dim)
+        return out.detach() if not self.is_train else out
 
     @property
     def num_outputs(self):
