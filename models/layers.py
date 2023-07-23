@@ -423,7 +423,10 @@ class AdvancedPositionalBias(nn.Module):
             expand(batch_size, -1, -1). \
             contiguous(). \
             view(-1, self.emb_dim_out)
-        return ((y @ x.view(-1, emb_dim, 1)).squeeze(-1) + z).view(batch_size, -1, self.emb_dim_out).contiguous()
+        return ((y @ x.view(-1, emb_dim, 1)).squeeze(-1) + z). \
+            contiguous(). \
+            view(batch_size, -1, self.emb_dim_out). \
+            contiguous()
 
 
 class AdvancedPositionalBiasMLP(nn.Module):
