@@ -10,7 +10,7 @@ import yaml
 from configs.trainer import TrainingConfig
 from configs.models import ViTConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, val_loop, unpack_batch
+from training.utils import train_loop, val_loop, unpack_batch, WrapperDataLoader
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
@@ -34,11 +34,10 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
     accelerator.print(f"Model perf at the end of the {epoch}-th epoch")
     accelerator.print("Val:")
     batch = next(iter(val_dl))
-    images, labels_0, labels_1, labels_2, labels_3, labels_4 = unpack_batch(batch,
-                                                                            ignore_index=ignore_index)
+    images, labels = batch
     device = accelerator.device
     x = images.to(device)[:1].expand(num_candidates, -1, -1, -1)
-    label_ = labels_0[0]
+    label_ = labels[0].to(device)
     model_wrapper = accelerator.unwrap_model(model_wrapper)
     with accelerator.autocast():
         if prompt is None:
@@ -122,8 +121,12 @@ def main(args):
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         config.tokenizer_str, **kwargs)
 
-    train_dl, val_dl = get_dataloader(tokenizer, config.batch_size, config.shuffle,
+    train_dl, val_dl = get_dataloader(tokenizer,
+                                      config.dataloader_buffer_size * config.batch_size,
+                                      config.shuffle,
                                       isinstance(config.model.vision_encoder_config, ViTConfig))
+    train_dl, val_dl = WrapperDataLoader(train_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index), \
+        WrapperDataLoader(val_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index)
 
     model_wrapper = ModelTrainerWrapper(
         model_config=config.model,
@@ -147,7 +150,6 @@ def main(args):
                    config.num_steps,
                    accelerator,
                    disable_flash=config.disable_flash,
-                   ignore_index=config.ignore_index,
                    reset_moco_after_k_epochs=config.reset_moco_after_k_epochs,
                    chckpt_fname=args.chkpt_file)
         eval_model(model_wrapper, accelerator, tokenizer, val_dl, epoch, config.ignore_index)
@@ -158,7 +160,6 @@ def main(args):
             config.num_val_steps,
             accelerator,
             disable_flash=config.disable_flash,
-            ignore_index=config.ignore_index
         )
         accelerator.print(f'Epoch: {epoch}, loss: {loss}, metrics: {metrics}')
 

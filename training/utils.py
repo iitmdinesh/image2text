@@ -35,6 +35,29 @@ def unpack_batch(batch,
     return images, labels_0, labels_1, labels_2, labels_3, labels_4
 
 
+class WrapperDataLoader:
+    def __init__(self, dataloader: torch.utils.data.DataLoader, batch_size: int, ignore_idx: int):
+        self.dataloader = dataloader
+        self.batch_size = batch_size
+        self.ignore_idx = ignore_idx
+
+    def __len__(self):
+        return 5 * len(self.dataloader)
+
+    def __iter__(self):
+        while True:
+            for batch in self.dataloader:
+                images, labels_0, labels_1, labels_2, labels_3, labels_4 = \
+                    unpack_batch(batch, ignore_index=self.ignore_idx)
+                images = torch.cat([images] * 5, dim=0)
+                labels = torch.cat([labels_0, labels_1, labels_2, labels_3, labels_4], dim=0)
+                perm = torch.randperm(images.size(0))
+                images = images[perm]
+                labels = labels[perm]
+                yield from zip(torch.split(images, self.batch_size, dim=0),
+                               torch.split(labels, self.batch_size, dim=0))
+
+
 def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                                     ModelTrainerWrapper],
                optimizer: torch.optim.Optimizer,
@@ -43,7 +66,6 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                num_steps: Optional[int],
                accelerator: Accelerator,
                disable_flash: bool = False,
-               ignore_index: int = -100,
                reset_moco_after_k_epochs: Optional[List[int]] = None,
                logging_callback=None,
                chckpt_fname=None):
@@ -60,30 +82,21 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
             if num_steps is not None and num_steps == step:
                 break
             tepoch.set_description(f'Epoch: {epoch}')
-            images, labels_0, labels_1, labels_2, labels_3, labels_4 = unpack_batch(batch,
-                                                                                    ignore_index=ignore_index)
-            images, labels_0, labels_1, labels_2, labels_3, labels_4 = \
-                images.to(device), labels_0.to(device), labels_1.to(device), labels_2.to(device), labels_3.to(device), \
-                labels_4.to(device)
+            images, labels = batch
+            images, labels = images.to(device), labels.to(device)
             ctx = torch.backends.cuda.sdp_kernel(enable_flash=False) if disable_flash else nullcontext()
             with ctx:
                 with accelerator.autocast():
                     with accelerator.accumulate(model_wrapper):
-                        loss_all = 0
-                        metrics_all = {}
-                        for labels in [labels_0, labels_1, labels_2, labels_3, labels_4]:
-                            loss, metrics = train_step(images, labels)
-                            loss_all = loss_all + loss / 5.0
-                            for k in metrics:
-                                metrics_all[k] = metrics_all.setdefault(k, 0.0) + metrics[k] / 5.0
-                        accelerator.backward(loss_all)
+                        loss, metrics = train_step(images, labels)
+                        accelerator.backward(loss)
                         optimizer.step()
                         optimizer.zero_grad()
 
-            tepoch.set_postfix(**{k: v.cpu().item() for k, v in metrics_all.items()})
+            tepoch.set_postfix(**{k: v.cpu().item() for k, v in metrics.items()})
             if accelerator.is_local_main_process:
                 if logging_callback is not None:
-                    logging_callback({k: v.cpu().item() for k, v in metrics_all.items()}, batch=step, epoch=epoch)
+                    logging_callback({k: v.cpu().item() for k, v in metrics.items()}, batch=step, epoch=epoch)
 
     if reset_moco_after_k_epochs is not None and (epoch + 1) in reset_moco_after_k_epochs:
         reset_method()
@@ -109,7 +122,6 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
              num_val_steps: Optional[int],
              accelerator: Accelerator,
              disable_flash: bool = False,
-             ignore_index: int = -100,
              ):
     model_wrapper.eval()
     device = accelerator.device
@@ -125,23 +137,20 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
             if num_val_steps is not None and num_val_steps == step:
                 break
             tepoch.set_description(f'Epoch: {epoch}')
-            images, labels_0, labels_1, labels_2, labels_3, labels_4 = unpack_batch(batch,
-                                                                                    ignore_index=ignore_index)
-            images, labels_0, labels_1, labels_2, labels_3, labels_4 = \
-                images.to(device), labels_0.to(device), labels_1.to(device), labels_2.to(device), labels_3.to(device), \
-                labels_4.to(device)
+            images, labels = batch
+            images, labels = images.to(device), labels.to(device)
             ctx = torch.backends.cuda.sdp_kernel(enable_flash=False) if disable_flash else nullcontext()
             with ctx:
                 with torch.no_grad():
                     with accelerator.no_sync(model_wrapper):
                         with accelerator.autocast():
-                            for labels in [labels_0, labels_1, labels_2, labels_3, labels_4]:
-                                loss, metrics = val_step(images, labels)
-                                loss_all.append(accelerator.gather(loss))
-                                metrics = accelerator.gather(metrics)
-                                for k in metrics:
-                                    metrics_all[k] = metrics_all.setdefault(k, 0.0) + \
-                                                     metrics[k].mean().cpu().item() / (5 * num_steps)
+
+                            loss, metrics = val_step(images, labels)
+                            loss_all.append(accelerator.gather(loss))
+                            metrics = accelerator.gather(metrics)
+                            for k in metrics:
+                                metrics_all[k] = metrics_all.setdefault(k, 0.0) + \
+                                                 metrics[k].mean().cpu().item() / num_steps
             tepoch.set_postfix(**{k: v.cpu().item() for k, v in metrics.items()})
     loss_all = torch.stack(loss_all, dim=0)
     loss = loss_all.mean().item()

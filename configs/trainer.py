@@ -24,6 +24,7 @@ class TrainingConfig(BaseModel):
     disable_flash: bool = False
     ignore_index: int = -100
     batch_size: int = 8
+    dataloader_buffer_size: int = 5
     shuffle: bool = True
     gradient_accumulation_steps: int = 4
     epochs: int = 6
