@@ -430,8 +430,15 @@ class AdvancedPositionalBiasMLP(nn.Module):
                  add_residual_connection: bool = True,
                  ):
         super().__init__()
-        self.models = nn.ModuleList([MLP(in_features, out_features, gate_sizes, add_residual_connection)
-                                     for _ in range(context_width)])
+        self.models = nn.ModuleList([
+            MLP(
+                in_features,
+                out_features,
+                gate_sizes,
+                bias=True,
+                add_residual_connection=add_residual_connection
+            ) for _ in range(context_width)
+        ])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.cat([mod(y).unsqueeze(-2) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
