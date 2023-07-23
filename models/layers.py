@@ -28,6 +28,7 @@ class MLP(nn.Module):
             out_features: int,
             gate_sizes: Optional[Tuple[int, ...]] = None,
             bias: bool = True,
+            add_residual_connection: bool = False
     ):
         super().__init__()
         gate_sizes = gate_sizes if gate_sizes is not None else []
@@ -38,9 +39,16 @@ class MLP(nn.Module):
             blocks.append(nn.GELU(approximate="tanh"))
             previous_shape = shape
         blocks.append(nn.Linear(previous_shape, out_features, bias=bias))
+        self.add_residual_connection = add_residual_connection
         self.model = nn.Sequential(*blocks)
+        if add_residual_connection:
+            self.residual_connector = nn.Linear(in_features, out_features)
+        else:
+            self.residual_connector = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.add_residual_connection:
+            return self.model(x) + self.residual_connector(x)
         return self.model(x)
 
 
@@ -422,20 +430,8 @@ class AdvancedPositionalBiasMLP(nn.Module):
                  add_residual_connection: bool = True,
                  ):
         super().__init__()
-        self.add_residual_connection = add_residual_connection
-        gate_sizes = gate_sizes if gate_sizes is not None else []
-        previous_shape = in_features
-        blocks = []
-        for shape in gate_sizes:
-            blocks.append(AdvancedPositionalBias(context_width, previous_shape, shape))
-            blocks.append(nn.GELU(approximate="tanh"))
-            previous_shape = shape
-        blocks.append(AdvancedPositionalBias(context_width, previous_shape, out_features))
-        self.model = nn.Sequential(*blocks)
-        if self.add_residual_connection:
-            self.residual_connector = AdvancedPositionalBias(context_width, in_features, out_features)
-        else:
-            self.residual_connector = nn.Identity()
+        self.models = nn.ModuleList([MLP(in_features, out_features, gate_sizes, add_residual_connection)
+                                     for _ in range(context_width)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x) + self.residual_connector(x) if self.add_residual_connection else self.model(x)
+        return torch.cat([mod(y).unsqueeze(-2) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
