@@ -5,7 +5,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
-import transformers
 
 from configs.models import (
     TransformerDecoderConfig,
@@ -15,7 +14,8 @@ from configs.models import (
 )
 from models.layers import (
     TransformerBlock,
-    LayerNorm
+    LayerNorm,
+    AdvancedPositionalBiasMLP,
 )
 from transformers import (
     AutoModelForCausalLM,
@@ -147,12 +147,19 @@ class TransformerDecoder(Decoder):
     def __init__(self, config: TransformerDecoderConfig, space_for_prompt: int):
         super().__init__()
         self.config = config
+        self.use_advanced_pos_emb = config.use_advanced_pos_emb
         self.enable_gradient_checkpointing = config.enable_gradient_checkpointing
         self.skip_alternate_cross_attn = config.skip_alternate_cross_attn
 
         self.transformer = nn.ModuleDict(dict(
             wte=nn.Embedding(config.vocab_size, config.transformer_config.attn_config.n_embd),
-            wpe=nn.Embedding(config.block_size, config.transformer_config.attn_config.n_embd),
+            wpe=AdvancedPositionalBiasMLP(
+                context_width=config.block_size,
+                in_features=self.n_embd,
+                out_features=self.n_embd,
+                gate_sizes=config.advanced_pos_emb_gate_sizes,
+                add_residual_connection=True,
+            ) if self.use_advanced_pos_emb else nn.Embedding(config.block_size, self.n_embd),
             drop=nn.Dropout(config.transformer_config.attn_config.dropout),
             h=nn.ModuleList([TransformerBlock(
                 mutate_transformer_config(config.transformer_config, depth, config.skip_alternate_cross_attn),
@@ -161,10 +168,10 @@ class TransformerDecoder(Decoder):
             )
                 for depth in range(config.n_layer)
             ]),
-            ln_f=LayerNorm(config.transformer_config.attn_config.n_embd,
+            ln_f=LayerNorm(self.n_embd,
                            bias=config.transformer_config.attn_config.bias),
         ))
-        self.lm_head = nn.Linear(config.transformer_config.attn_config.n_embd, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(self.n_embd, config.vocab_size, bias=False)
         self.tie_weights()
 
         # init all weights
@@ -206,16 +213,20 @@ class TransformerDecoder(Decoder):
 
         assert t <= self.block_size, f"Cannot forward sequence of length {t}, " \
                                      f"block size is only {self.block_size}"
-        # shape (t)
-        pos = torch.arange(0, t, dtype=torch.long, device=device)
-
         if inputs_embeds is None:
             # forward the GPT model itself
             # token embeddings of shape (b, t, n_embd)
             inputs_embeds = self.transformer.wte(idx)
-        # position embeddings of shape (t, n_embd)
-        pos_emb = self.transformer.wpe(pos)
-        x = self.transformer.drop(inputs_embeds + pos_emb)
+
+        if self.use_advanced_pos_emb:
+            x = self.transformer.drop(self.transformer.wpe(inputs_embeds))
+        else:
+            # shape (t)
+            pos = torch.arange(0, t, dtype=torch.long, device=device)
+            # position embeddings of shape (t, n_embd)
+            pos_emb = self.transformer.wpe(pos)
+            x = self.transformer.drop(inputs_embeds + pos_emb)
+
         jit_op = torch.jit.is_scripting() or torch.jit.is_tracing()
         for depth, block in enumerate(self.transformer.h):
             if self.skip_alternate_cross_attn:

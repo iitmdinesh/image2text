@@ -65,6 +65,8 @@ class ModelType(Enum):
 
 
 class TransformerDecoderConfig(BaseModel):
+    use_advanced_pos_emb: bool = False
+    advanced_pos_emb_gate_sizes: Optional[Tuple[int, ...]] = None
     pretrained_model: Optional[ModelType] = None
     enable_gradient_checkpointing: bool = False
     n_layer: int = 12
