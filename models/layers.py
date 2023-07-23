@@ -405,27 +405,11 @@ class AdvancedPositionalBias(nn.Module):
     """
     def __init__(self, context_width: int, emb_dim: int, emb_dim_out: Optional[int] = None):
         super().__init__()
-        self.emb_dim_out = emb_dim_out if emb_dim_out is not None else emb_dim
-        self.pos_encoding_weight = nn.Embedding(context_width, emb_dim * self.emb_dim_out)
-        self.pos_encoding_bias = nn.Embedding(context_width, self.emb_dim_out)
+        emb_dim_out = emb_dim_out if emb_dim_out is not None else emb_dim
+        self.models = nn.ModuleList([nn.Linear(emb_dim, emb_dim_out) for _ in range(context_width)])
 
     def forward(self, x: torch.Tensor):
-        batch_size, contex_width, emb_dim = x.shape
-        device = x.device
-        position_index = torch.arange(0, contex_width, device=device)
-        y = self.pos_encoding_weight(position_index). \
-            view(1, contex_width, self.emb_dim_out, emb_dim). \
-            expand(batch_size, -1, -1, -1). \
-            contiguous(). \
-            view(-1, self.emb_dim_out, emb_dim)
-        z = self.pos_encoding_bias(position_index). \
-            view(1, contex_width, self.emb_dim_out). \
-            expand(batch_size, -1, -1). \
-            contiguous(). \
-            view(-1, self.emb_dim_out)
-        return ((y @ x.view(-1, emb_dim, 1)).squeeze(-1) + z). \
-            view(batch_size, -1, self.emb_dim_out). \
-            contiguous()
+        return torch.cat([mod(y).unsqueeze(-2) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
 
 
 class AdvancedPositionalBiasMLP(nn.Module):

@@ -3,15 +3,15 @@ trainer:
   # moco_momentum: 0.9
   # moco_alpha: 0.4
   actual_vocab_size: 50257
-  mask_fraction: 0.0
-  random_mask_fraction: 0.0
+  mask_fraction: 0.15
+  random_mask_fraction: 0.20
 optimizer:
   lr: 6e-4
 #  weight_decay: 1e-1
-batch_size: 2
-num_steps: 64
-num_val_steps: 8
-gradient_accumulation_steps: 8
+batch_size: 4
+num_steps: 200
+num_val_steps: 20
+gradient_accumulation_steps: 2
 epochs: 20
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'no'
