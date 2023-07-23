@@ -61,7 +61,7 @@ class ViT(Encoder):
         x = self.model(images)
         if not self.refine:
             x = x.detach()
-        return x.unsqueeze(-2).expand(-1, self.n_cls, -1)
+        return self.proj(x.unsqueeze(-2).expand(-1, self.n_cls, -1))
 
     @property
     def num_outputs(self):
