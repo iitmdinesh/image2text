@@ -42,7 +42,8 @@ class MLP(nn.Module):
         self.add_residual_connection = add_residual_connection
         self.model = nn.Sequential(*blocks)
         if add_residual_connection:
-            self.residual_connector = nn.Linear(in_features, out_features)
+            self.residual_connector = nn.Linear(in_features, out_features) \
+                if in_features != out_features else nn.Identity()
         else:
             self.residual_connector = nn.Identity()
 
