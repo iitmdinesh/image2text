@@ -407,21 +407,8 @@ class TransformerBlock(nn.Module):
         return x_final
 
 
-class AdvancedPositionalBias(nn.Module):
-    """
-    Advanced postional bias using linear layer per position
-    """
-    def __init__(self, context_width: int, emb_dim: int, emb_dim_out: Optional[int] = None):
-        super().__init__()
-        emb_dim_out = emb_dim_out if emb_dim_out is not None else emb_dim
-        self.models = nn.ModuleList([nn.Linear(emb_dim, emb_dim_out) for _ in range(context_width)])
-
-    def forward(self, x: torch.Tensor):
-        return torch.cat([mod(y).unsqueeze(-2) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
-
-
 class AdvancedPositionalBiasMLP(nn.Module):
-    """Further extension of AdvancedPositionalBias using an MLP instead of linear layer"""
+    """Advanced positional bias using MLP per position"""
     def __init__(self,
                  context_width: int,
                  in_features: int,
