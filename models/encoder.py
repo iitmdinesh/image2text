@@ -46,11 +46,11 @@ class ViT(Encoder):
         super().__init__(config)
         weights = ViT_B_16_Weights.IMAGENET1K_SWAG_LINEAR_V1
         model = vit_b_16(weights=weights)
-        model.heads = nn.Linear(768, config.n_embd_out_vit)
+        model.heads = nn.Identity()
         self.out_dim = config.n_embd_out_vit
         self.n_cls = config.n_cls
         self.proj = AdvancedPositionalBiasMLP(context_width=config.n_cls,
-                                              in_features=config.n_embd_out_vit,
+                                              in_features=768,
                                               out_features=config.n_embd_out_vit,
                                               gate_sizes=config.gate_sizes,
                                               add_residual_connection=True)
