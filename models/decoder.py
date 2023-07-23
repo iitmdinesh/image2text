@@ -349,7 +349,8 @@ class HuggingfaceDecoder(Decoder, abc.ABC):
                 encoder_hidden_states=cross_attn_embeds,
                 input_ids=idx,
                 inputs_embeds=inputs_embeds,
-                attention_mask=attn_msk,
+                # not sure how to use detailed attn mask so keeping it causal
+                attention_mask=None,
                 output_hidden_states=True,
             )
         else:
@@ -357,7 +358,8 @@ class HuggingfaceDecoder(Decoder, abc.ABC):
             outputs = self.backbone(
                 input_ids=idx,
                 inputs_embeds=inputs_embeds,
-                attention_mask=attn_msk,
+                # not sure how to use detailed attn mask so keeping it causal
+                attention_mask=None,
                 output_hidden_states=True,
             )
         return outputs.logits, outputs.hidden_states[-1]

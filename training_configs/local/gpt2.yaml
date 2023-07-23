@@ -15,6 +15,9 @@ model:
   no_repeat_n_grams: [2, 3, 4, 5]
   vision_encoder_config:
     n_embd_out_vit: 768
+    n_cls: 16
+    gate_sizes: [ 1024 ]
+    refine_base_model: False
 #    enable_gradient_checkpointing: True
 #    input:
 #      n_channels: 3
