@@ -429,4 +429,4 @@ class AdvancedPositionalBiasMLP(nn.Module):
         ])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.cat([mod(y).unsqueeze(-2) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
+        return torch.stack([mod(y) for mod, y in zip(self.models, x.unbind(dim=-2))], dim=-2)
