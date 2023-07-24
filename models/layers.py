@@ -339,6 +339,7 @@ class TransformerBlock(nn.Module):
             if config.is_cross_attn else nn.Identity()
         self.is_sparse = config.is_sparse_attn
         if self.is_sparse:
+            # why does this help: https://medium.com/@iitmdinesh/sparse-transformers-922e010bbd27
             assert config.max_block_size is not None, 'need to specify max_block_size for sparse attention'
             n_non_zeros = int(config.sparsity_factor * config.max_block_size)
             # full_mask = torch.randperm(config.max_block_size, dtype=torch.long)

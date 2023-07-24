@@ -9,14 +9,15 @@ class TrainerWrapperConfig(BaseModel):
     training_temperature: float = 1.0
     weight_fn: str = 'constant'
     actual_vocab_size: int
-    mask_fraction: float = 0.15
-    random_mask_fraction: float = 0.2
+    mask_fraction: float = 0.0  # 0.15
+    random_mask_fraction: float = 0.0  # 0.2
     eos_token_weight: Optional[float] = None
 
 
 class OptimizerConfig(BaseModel):
     lr: float = 6e-4
     weight_decay: float = 0.0
+    target_modules: Optional[List[str]] = None
 
 
 class TrainingConfig(BaseModel):

@@ -1,3 +1,5 @@
+# README
+
 ## Getting started
 ```shell
 pip install -r requirements.txt
@@ -24,3 +26,6 @@ write your own (In which case it must a yaml file that maps to the `TrainingConf
 ## References
  * Some transformer encoder/decoder code was taken from nanoGPT repository (https://github.com/karpathy/nanoGPT)
  * Huggingface ecosystem (transformers, accelerate and peft libraries and of course the model hub)
+ * Momentum distillation (https://arxiv.org/abs/2107.07651). Why does this help? Intuition is this helps with choosing 
+   the right scale for learning rate (self-similarity that momentum distillation enforces essentially promotes slower 
+   updates)

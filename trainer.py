@@ -10,7 +10,7 @@ import yaml
 from configs.trainer import TrainingConfig
 from configs.models import ViTConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, val_loop, WrapperDataLoader
+from training.utils import train_loop, val_loop, WrapperDataLoader, RegexMatcher
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
@@ -116,7 +116,7 @@ def main(args):
     kwargs = {}
     if tokenizer.eos_token_id is None:
         kwargs['eos_token'] = '<EOS>'
-    if tokenizer.mask_token_id is None:
+    if tokenizer.mask_token_id is None and config.trainer.mask_fraction > 0:
         kwargs['mask_token'] = '<MSK>'
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
         config.tokenizer_str, **kwargs)
@@ -137,8 +137,18 @@ def main(args):
         ignore_index=config.ignore_index,
     ).to(accelerator.device)
     accelerator.print(model_wrapper.model)
+
+    if config.optimizer.target_modules is not None:
+        matcher = RegexMatcher(config.optimizer.target_modules)
+        names = "\n".join([n for n, p in model_wrapper.named_parameters() if matcher.match(n)])
+        params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if matcher.match(n)])
+        accelerator.print(f'Optimizing the following params:\n{names}')
+    else:
+        # don't add momentum model params to optimizer state as it will bloat memory footprint
+        params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if n.startswith('model.')])
+
     optimizer = torch.optim.AdamW(
-        model_wrapper.parameters(),
+        params,
         lr=config.optimizer.lr,
         weight_decay=config.optimizer.weight_decay,
     )

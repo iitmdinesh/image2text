@@ -134,7 +134,7 @@ class ModelTrainerWrapper(nn.Module):
         )
         attn_msk = labels != self.ignore_index
 
-        if is_train:
+        if is_train and self.mask_fraction > 0:
             mask = self.tokenizer.mask_token_id * torch.ones_like(input_ids)
             # typically 20% random corruption of mask
             corrupted_mask = torch.where(

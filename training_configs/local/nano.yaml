@@ -1,12 +1,16 @@
 tokenizer_str: 'gpt2'
 trainer:
-  moco_momentum: 0.9
-  moco_alpha: 0.4
+  # moco_momentum: 0.9
+  # moco_alpha: 0.4
   actual_vocab_size: 50257
   mask_fraction: 0.0
   random_mask_fraction: 0.0
 optimizer:
   lr: 6e-4
+  target_modules:
+    - 'model.encoder.proj.*'
+    - 'model.decoder.transformer.h.*.cross_attn.*'
+    # - 'model.decoder.transformer.wpe.*'  # use when soft-prompting is true
 #  weight_decay: 1e-1
 batch_size: 4
 num_steps: 200
@@ -15,11 +19,11 @@ gradient_accumulation_steps: 2
 epochs: 1
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'no'
-reset_moco_after_k_epochs: [1, 2]
+#reset_moco_after_k_epochs: [1, 2]
 model:
   # chkpt_path: 'checkpoints/nano.pt'
   use_cross_attn: True
-  use_soft_prompting: True
+  use_soft_prompting: False
   no_repeat_n_grams: [2, 3, 4, 5]
   loose_match_decoder_state_dict: True
   vision_encoder_config:
@@ -59,10 +63,11 @@ model:
 #        top_k: 2
   decoder_config:
     pretrained_model: gpt2
+    enable_gradient_checkpointing: False
     n_layer: 12
     block_size: 1024
-    # 50257 (gpt2 tokenizer) + 2 special tokens for training <MSK> and <EOS>
-    vocab_size: 50259
+    # 50257 (gpt2 tokenizer)
+    vocab_size: 50257
     transformer_config:
       is_cross_attn: True
       attn_config:

@@ -114,11 +114,14 @@ class VisionEncoderDecoder(nn.Module):
         else:
             inputs_embeds = None
             offset = 0
+            if attn_msk is not None:
+                attn_msk = attn_msk.masked_fill(~attn_msk, -float('inf')).float()
+                attn_msk[attn_msk == 1] = 0
         if self.use_cross_attn:
             cross_attn_values = encoder_output
         else:
             cross_attn_values = None
-        logits, hidden = self.decoder(
+        logits, _ = self.decoder(
             idx=ids,
             inputs_embeds=inputs_embeds,
             cross_attn_embeds=cross_attn_values,
