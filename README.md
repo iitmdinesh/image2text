@@ -1,29 +1,26 @@
-# README #
+## Getting started
+```shell
+pip install -r requirements.txt
+```
 
-This README would normally document whatever steps are necessary to get your application up and running.
+## Launch jobs
+On Mac OSX
+```shell
+export PYTORCH_ENABLE_MPS_FALLBACK=1; accelerate launch trainer.py --config_file training_configs/local/nano.yaml --chkpt_file checkpoints/nano.pt
+```
+To disable MPS / CUDA, do this
+```shell
+accelerate launch --cpu trainer.py --config_file training_configs/local/nano.yaml --chkpt_file checkpoints/nano.pt
+```
+Choose configs from `training_configs/local` for local runs or `training_configs/gpu` for gpu runs or 
+write your own (In which case it must a yaml file that maps to the `TrainingConfig` class in 
+`configs/trainer.py`). Try using `training_configs/local/nano.yaml` for fast prototyping locally.
 
-### What is this repository for? ###
+## Add a new Huggingface model as a decoder?
+* Subclass `HuggingfaceDecoder` in `models/decoder.py` like how `GPT2HuggingfaceDecoder` and `FalconHuggingfaceDecoder`
+  do so.
+* Update the `Decoder.from_config` method in the same file appropriately 
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
-
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
+## References
+ * Some transformer encoder/decoder code was taken from nanoGPT repository (https://github.com/karpathy/nanoGPT)
+ * Huggingface ecosystem (transformers, accelerate and peft libraries and of course the model hub)

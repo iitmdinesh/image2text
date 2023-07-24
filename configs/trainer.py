@@ -30,7 +30,7 @@ class TrainingConfig(BaseModel):
     epochs: int = 6
     num_steps: Optional[int] = None
     num_val_steps: Optional[int] = None
-    precision: str = 'fp16'
+    precision: str = 'no'
     add_eos: bool = True
     tokenizer_str: str
     reset_moco_after_k_epochs: Optional[List[int]] = None

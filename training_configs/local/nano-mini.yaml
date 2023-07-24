@@ -12,7 +12,7 @@ num_val_steps: 20
 shuffle: True
 gradient_accumulation_steps: 2
 #reset_moco_after_k_epochs: [1, 2]
-epochs: 20
+epochs: 1
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'no'
 model:
@@ -63,6 +63,7 @@ model:
     vocab_size: 50259  # 50257 + 2
     use_advanced_pos_emb: True
     advanced_pos_emb_gate_sizes: [32, 128, 32]
+    enable_gradient_checkpointing: True
     transformer_config:
       is_cross_attn: True
       attn_config:
@@ -74,7 +75,7 @@ model:
         attn_type: multi_query
       max_block_size: 320  # block size
       is_sparse_attn: True
-      sparsity_factor: 0.5  # < 1 - (1 - 0.5)^6 = 0.984 (less than this estimate because of causal mask)
+      sparsity_factor: 0.33  # < 1 - (1 - 0.5)^6 = 0.984 (less than this estimate because of causal mask)
       rotator_config:
         num_experts: 4
         proj_features: 16

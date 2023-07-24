@@ -12,7 +12,7 @@ num_steps: 200
 num_val_steps: 20
 gradient_accumulation_steps: 1
 # reset_moco_after_k_epochs: [1, 2]
-epochs: 20
+epochs: 1
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'fp16'
 model:

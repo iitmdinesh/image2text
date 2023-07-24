@@ -10,7 +10,7 @@ import yaml
 from configs.trainer import TrainingConfig
 from configs.models import ViTConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, val_loop, unpack_batch, WrapperDataLoader
+from training.utils import train_loop, val_loop, WrapperDataLoader
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
@@ -25,7 +25,7 @@ from argparse import ArgumentParser
 def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTrainerWrapper],
                accelerator,
                tokenizer,
-               val_dl,
+               val_iter,
                epoch,
                ignore_index,
                prompt='A',
@@ -33,7 +33,7 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
                ):
     accelerator.print(f"Model perf at the end of the {epoch}-th epoch")
     accelerator.print("Val:")
-    batch = next(iter(val_dl))
+    batch = next(val_iter)
     images, labels = batch
     device = accelerator.device
     x = images.to(device)[:1].expand(num_candidates, -1, -1, -1)
@@ -125,8 +125,10 @@ def main(args):
                                       config.dataloader_buffer_size * config.batch_size,
                                       config.shuffle,
                                       isinstance(config.model.vision_encoder_config, ViTConfig))
-    train_dl, val_dl = WrapperDataLoader(train_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index), \
-        WrapperDataLoader(val_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index)
+    train_dl, val_dl = WrapperDataLoader(train_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index,
+                                         epochs=config.epochs), \
+                       WrapperDataLoader(val_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index,
+                                         epochs=100000)
 
     model_wrapper = ModelTrainerWrapper(
         model_config=config.model,
@@ -142,20 +144,25 @@ def main(args):
     )
     model_wrapper, optimizer, train_dl, val_dl = \
         accelerator.prepare(model_wrapper, optimizer, train_dl, val_dl, device_placement=[False, True, True, True])
-    for epoch in range(config.epochs):
-        train_loop(model_wrapper,
-                   optimizer,
-                   train_dl,
-                   epoch,
-                   config.num_steps,
-                   accelerator,
-                   disable_flash=config.disable_flash,
-                   reset_moco_after_k_epochs=config.reset_moco_after_k_epochs,
-                   chckpt_fname=args.chkpt_file)
-        eval_model(model_wrapper, accelerator, tokenizer, val_dl, epoch, config.ignore_index)
+    train_iter = iter(train_dl)
+    val_iter = iter(val_dl)
+    for epoch in range(10000):
+        stop = train_loop(
+            model_wrapper,
+            optimizer,
+            train_iter,
+            epoch,
+            config.num_steps,
+            accelerator,
+            disable_flash=config.disable_flash,
+            reset_moco_after_k_epochs=config.reset_moco_after_k_epochs,
+            chckpt_fname=args.chkpt_file)
+        if stop:
+            break
+        eval_model(model_wrapper, accelerator, tokenizer, val_iter, epoch, config.ignore_index)
         loss, metrics = val_loop(
             model_wrapper,
-            val_dl,
+            val_iter,
             epoch,
             config.num_val_steps,
             accelerator,

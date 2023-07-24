@@ -9,7 +9,7 @@ disable_flash: True
 batch_size: 12
 # num_steps: 4
 gradient_accumulation_steps: 8
-epochs: 6
+epochs: 1
 # reset_moco_after_k_epochs: [1, 2]
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'fp16'

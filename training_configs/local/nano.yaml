@@ -1,10 +1,10 @@
 tokenizer_str: 'gpt2'
 trainer:
-  # moco_momentum: 0.9
-  # moco_alpha: 0.4
+  moco_momentum: 0.9
+  moco_alpha: 0.4
   actual_vocab_size: 50257
-  mask_fraction: 0.15
-  random_mask_fraction: 0.20
+  mask_fraction: 0.0
+  random_mask_fraction: 0.0
 optimizer:
   lr: 6e-4
 #  weight_decay: 1e-1
@@ -12,10 +12,10 @@ batch_size: 4
 num_steps: 200
 num_val_steps: 20
 gradient_accumulation_steps: 2
-epochs: 20
+epochs: 1
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'no'
-#reset_moco_after_k_epochs: [1, 2]
+reset_moco_after_k_epochs: [1, 2]
 model:
   # chkpt_path: 'checkpoints/nano.pt'
   use_cross_attn: True

@@ -1,4 +1,4 @@
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Iterator, Tuple
 
 import torch
 import torch.nn as nn
@@ -36,16 +36,17 @@ def unpack_batch(batch,
 
 
 class WrapperDataLoader:
-    def __init__(self, dataloader: torch.utils.data.DataLoader, batch_size: int, ignore_idx: int):
+    def __init__(self, dataloader: torch.utils.data.DataLoader, batch_size: int, ignore_idx: int, epochs: int):
         self.dataloader = dataloader
         self.batch_size = batch_size
         self.ignore_idx = ignore_idx
+        self.epochs = epochs
 
     def __len__(self):
         return 5 * len(self.dataloader)
 
     def __iter__(self):
-        while True:
+        for _ in range(self.epochs):
             for batch in self.dataloader:
                 images, labels_0, labels_1, labels_2, labels_3, labels_4 = \
                     unpack_batch(batch, ignore_index=self.ignore_idx)
@@ -61,7 +62,7 @@ class WrapperDataLoader:
 def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                                     ModelTrainerWrapper],
                optimizer: torch.optim.Optimizer,
-               train_dl: torch.utils.data.DataLoader,
+               train_iter: Iterator[Tuple[torch.Tensor, torch.Tensor]],
                epoch: int,
                num_steps: Optional[int],
                accelerator: Accelerator,
@@ -77,12 +78,16 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
         train_step = model_wrapper.train_step
         reset_method = model_wrapper.copy_momentum_params
     device = accelerator.device
-    with tqdm(train_dl, unit="batch", disable=not accelerator.is_local_main_process) as tepoch:
-        for step, batch in enumerate(tepoch):
-            if num_steps is not None and num_steps == step:
-                break
+    stop = False
+    num_steps = 100 if num_steps is None else num_steps
+    with tqdm(range(num_steps), unit="batch", disable=not accelerator.is_local_main_process) as tepoch:
+        for step in tepoch:
             tepoch.set_description(f'Epoch: {epoch}')
-            images, labels = batch
+            try:
+                images, labels = next(train_iter)
+            except StopIteration:
+                stop = True
+                break
             images, labels = images.to(device), labels.to(device)
             ctx = torch.backends.cuda.sdp_kernel(enable_flash=False) if disable_flash else nullcontext()
             with ctx:
@@ -113,11 +118,12 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
         #     if p.requires_grad:
         #         to_save[k] = sd[k]
         accelerator.save(unwrapped_model.state_dict(), smart_open(chckpt_fname, mode='wb'))
+    return stop
 
 
 def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                                   ModelTrainerWrapper],
-             val_dl: torch.utils.data.DataLoader,
+             val_iter: Iterator[Tuple[torch.Tensor, torch.Tensor]],
              epoch: int,
              num_val_steps: Optional[int],
              accelerator: Accelerator,
@@ -127,17 +133,15 @@ def val_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
     device = accelerator.device
     loss_all = []
     metrics_all = {}
-    num_steps = len(val_dl) if num_val_steps is None else num_val_steps
+    num_steps = 100 if num_val_steps is None else num_val_steps
     if isinstance(model_wrapper, nn.parallel.DistributedDataParallel):
         val_step = model_wrapper.module.val_step
     else:
         val_step = model_wrapper.val_step
-    with tqdm(val_dl, unit="batch", disable=not accelerator.is_local_main_process) as tepoch:
-        for step, batch in enumerate(tepoch):
-            if num_val_steps is not None and num_val_steps == step:
-                break
+    with tqdm(range(num_steps), unit="batch", disable=not accelerator.is_local_main_process) as tepoch:
+        for _ in tepoch:
             tepoch.set_description(f'Epoch: {epoch}')
-            images, labels = batch
+            images, labels = next(val_iter)
             images, labels = images.to(device), labels.to(device)
             ctx = torch.backends.cuda.sdp_kernel(enable_flash=False) if disable_flash else nullcontext()
             with ctx:
