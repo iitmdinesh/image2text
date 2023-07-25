@@ -1,8 +1,9 @@
 tokenizer_str: 'gpt2-xl'
 trainer:
   actual_vocab_size: 50257
-optimizer:
-  lr: 6e-4
+optimizers:
+  - lr: 6e-4
+    # weight_decay: 1e-1
 batch_size: 12
 # num_steps: 4
 gradient_accumulation_steps: 8

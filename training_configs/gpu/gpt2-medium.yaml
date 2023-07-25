@@ -3,8 +3,9 @@ trainer:
   # moco_momentum: 0.995
   # moco_alpha: 0.4
   actual_vocab_size: 50257
-optimizer:
-  lr: 6e-4
+optimizers:
+  - lr: 6e-4
+    # weight_decay: 1e-1
 disable_flash: True
 batch_size: 12
 # num_steps: 4

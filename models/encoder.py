@@ -3,6 +3,7 @@ from typing import Union
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.utils.checkpoint
 
 from configs.models import VisionTransformerEncoderConfig, ViTConfig
@@ -59,9 +60,10 @@ class ViT(Encoder):
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         x = self.model(images)
+        x = F.normalize(x, p=2.0, dim=-1)
         if not self.refine:
             x = x.detach()
-        return self.proj(x.unsqueeze(-2).expand(-1, self.n_cls, -1).contiguous())
+        return F.normalize(self.proj(x.unsqueeze(-2).expand(-1, self.n_cls, -1).contiguous()), p=2.0, dim=-1)
 
     @property
     def num_outputs(self):

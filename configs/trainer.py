@@ -36,4 +36,4 @@ class TrainingConfig(BaseModel):
     tokenizer_str: str
     reset_moco_after_k_epochs: Optional[List[int]] = None
     trainer: TrainerWrapperConfig
-    optimizer: OptimizerConfig
+    optimizers: List[OptimizerConfig]

@@ -13,7 +13,7 @@ from training.wrapper import ModelTrainerWrapper
 import fnmatch
 
 
-class RegexMatcher:
+class PatternMatcher:
     def __init__(self, patterns: Optional[List[str]]):
         self.patterns = patterns
 

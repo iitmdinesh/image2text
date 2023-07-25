@@ -10,7 +10,7 @@ import yaml
 from configs.trainer import TrainingConfig
 from configs.models import ViTConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, val_loop, WrapperDataLoader, RegexMatcher
+from training.utils import train_loop, val_loop, WrapperDataLoader, PatternMatcher
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
@@ -137,20 +137,26 @@ def main(args):
         ignore_index=config.ignore_index,
     ).to(accelerator.device)
     accelerator.print(model_wrapper.model)
-
-    if config.optimizer.target_modules is not None:
-        matcher = RegexMatcher(config.optimizer.target_modules)
-        names = "\n".join([n for n, p in model_wrapper.named_parameters() if matcher.match(n)])
-        params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if matcher.match(n)])
-        accelerator.print(f'Optimizing the following params:\n{names}')
-    else:
-        # don't add momentum model params to optimizer state as it will bloat memory footprint
-        params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if n.startswith('model.')])
+    param_groups = []
+    for optim_config in config.optimizers:
+        if optim_config.target_modules is not None:
+            matcher = PatternMatcher(optim_config.target_modules)
+            names = ",".join([n for n, p in model_wrapper.named_parameters() if matcher.match(n)])
+            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if matcher.match(n)])
+            accelerator.print(f'Optimizing the following params:\n{names} with lr={optim_config.lr} and '
+                              f'weight_decay={optim_config.weight_decay}')
+        else:
+            # don't add momentum model params to optimizer state as it will bloat memory footprint
+            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if n.startswith('model.')])
+        param_group = {
+            'lr': optim_config.lr,
+            'weight_decay': optim_config.weight_decay,
+            'params': params
+        }
+        param_groups.append(param_group)
 
     optimizer = torch.optim.AdamW(
-        params,
-        lr=config.optimizer.lr,
-        weight_decay=config.optimizer.weight_decay,
+        param_groups,
     )
     model_wrapper, optimizer, train_dl, val_dl = \
         accelerator.prepare(model_wrapper, optimizer, train_dl, val_dl, device_placement=[False, True, True, True])

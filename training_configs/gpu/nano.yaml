@@ -3,8 +3,9 @@ trainer:
   actual_vocab_size: 50257
   # mask_fraction: 0.0
   # random_mask_fraction: 0.0
-optimizer:
-  lr: 6e-4
+optimizers:
+  - lr: 6e-4
+    # weight_decay: 1e-1
 batch_size: 10
 num_steps: 64
 num_val_steps: 8

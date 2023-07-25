@@ -1,8 +1,9 @@
 tokenizer_str: 'tiiuae/falcon-7b'
 trainer:
   actual_vocab_size: 65024
-optimizer:
-  lr: 6e-4
+optimizers:
+  - lr: 6e-4
+    # weight_decay: 1e-1
 batch_size: 4
 # num_steps: 4
 gradient_accumulation_steps: 8
