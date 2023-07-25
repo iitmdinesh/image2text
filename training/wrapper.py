@@ -15,8 +15,6 @@ class ModelTrainerWrapper(nn.Module):
     Trains the model on three tasks
         (i) Causal LM on summary of embeddings conditioned on input embedding sequence
         (ii) Causal Masked LM on summary of embeddings conditioned on input embedding sequence
-        (iii) Embedding <> Description matching posed as a binary classification problem
-            (using EOS token hidden states)
     """
 
     def __init__(
