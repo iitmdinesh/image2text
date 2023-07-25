@@ -10,3 +10,4 @@ git+https://github.com/huggingface/peft  # peft bleeding edge version need for k
 smart_open
 scipy
 torchvision
+matplotlib
