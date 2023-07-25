@@ -18,5 +18,4 @@ def mutate_transformer_config(config: TransformerConfig, depth: int, skip_altern
     if config.is_cross_attn and skip_alternate_cross_attn and depth % 2:
         config = deepcopy(config)
         config.is_cross_attn = False
-        return config
     return config
