@@ -133,7 +133,7 @@ class VisionEncoderDecoder(nn.Module):
         )
 
     @torch.no_grad()
-    def generate(self, images, prompt_ids, max_new_tokens=128, temperature=1.0, top_k=None, eos_token_id=None) -> \
+    def generate(self, images, prompt_ids, max_new_tokens=128, temperature=1.0, top_k=None) -> \
             torch.LongTensor:
         blk_size = self.decoder.block_size - self.space_for_prompt
         assert max_new_tokens <= blk_size - prompt_ids.size(-1)
