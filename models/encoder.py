@@ -1,3 +1,4 @@
+import abc
 from typing import Union
 
 import math
@@ -17,7 +18,8 @@ from models.layers import (
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 
 
-class Encoder(nn.Module):
+class Encoder(nn.Module, abc.ABC):
+    """Base class for encoder models"""
     def __init__(self, config):
         super().__init__()
         self.config = config
