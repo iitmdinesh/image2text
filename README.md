@@ -1,5 +1,8 @@
 # README
 
+## Dataset
+Flickr30K (https://datasets.activeloop.ai/docs/ml/datasets/flickr30k-dataset/) 
+
 ## Getting started
 ```shell
 pip install -r requirements.txt
