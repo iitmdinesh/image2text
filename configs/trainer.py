@@ -8,7 +8,6 @@ class TrainerWrapperConfig(BaseModel):
     moco_alpha: Optional[float] = None  # 0.4
     training_temperature: float = 1.0
     weight_fn: str = 'constant'
-    actual_vocab_size: int
     mask_fraction: float = 0.0  # 0.15
     random_mask_fraction: float = 0.0  # 0.2
     eos_token_weight: Optional[float] = None

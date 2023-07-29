@@ -33,7 +33,6 @@ class ModelTrainerWrapper(nn.Module):
         self.ignore_index = ignore_index
         self.temperature = trainer_config.training_temperature
         self.weight_fn = trainer_config.weight_fn
-        self.actual_vocab_size = trainer_config.actual_vocab_size
         self.mask_fraction = trainer_config.mask_fraction
         self.random_mask_fraction = trainer_config.random_mask_fraction
         self.eos_token_weight = trainer_config.eos_token_weight
@@ -137,7 +136,7 @@ class ModelTrainerWrapper(nn.Module):
             # typically 20% random corruption of mask
             corrupted_mask = torch.where(
                 torch.rand_like(input_ids, dtype=torch.float) <= self.random_mask_fraction,
-                torch.randint_like(input_ids, low=0, high=self.actual_vocab_size),
+                torch.randint_like(input_ids, low=0, high=self.tokenizer.vocab_size),
                 mask
             )
 
@@ -157,6 +156,17 @@ class ModelTrainerWrapper(nn.Module):
         else:
             # don't mask validation data
             corrupted_inputs = input_ids
+
+        bs = corrupted_inputs.size(0)
+        sl = corrupted_inputs.size(1)
+        corrupted_inputs = torch.cat((
+            self.tokenizer.bos_token_id * torch.ones((bs, 1), device=corrupted_inputs.device, dtype=torch.long),
+            corrupted_inputs,
+        ), dim=1)[:, :sl]
+        attn_msk = torch.cat((
+            torch.ones((bs, 1), device=attn_msk.device, dtype=torch.bool),
+            attn_msk,
+        ), dim=1)[:, :sl]
 
         step = 'train' if is_train else 'val'
         lm_logits = self(x, corrupted_inputs, attn_msk)

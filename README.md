@@ -9,6 +9,9 @@ pip install -r requirements.txt
 ```
 
 ## Launch jobs
+```shell
+mkdir checkpoints
+```
 On Mac OSX
 ```shell
 export PYTORCH_ENABLE_MPS_FALLBACK=1; accelerate launch trainer.py --config_file training_configs/local/nano.yaml --chkpt_file checkpoints/nano.pt
@@ -33,7 +36,7 @@ write your own (In which case it must a yaml file that maps to the `TrainingConf
    the right scale for learning rate (self-similarity that momentum distillation enforces essentially promotes slower 
    updates)
 
-## Results
+## Validation results
 Using config `training_configs/local/nano.yaml`
 
 <img src="assets/skateboarders.png" alt="Goal" width="550"/>

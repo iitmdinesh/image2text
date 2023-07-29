@@ -1,6 +1,5 @@
 tokenizer_str: 'gpt2'
-trainer:
-  actual_vocab_size: 50257
+trainer: {}
   # mask_fraction: 0.0
   # random_mask_fraction: 0.0
 optimizers:

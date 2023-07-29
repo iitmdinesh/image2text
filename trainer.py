@@ -28,8 +28,8 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
                val_iter,
                epoch,
                ignore_index,
-               prompt='A',
-               num_candidates=2,
+               prompt=None,
+               num_candidates=4,
                ):
     accelerator.print(f"Model perf at the end of the {epoch}-th epoch")
     accelerator.print("Val:")
@@ -38,21 +38,22 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
     device = accelerator.device
     x = images.to(device)[:1].expand(num_candidates, -1, -1, -1)
     label_ = labels[0].to(device)
+    if prompt is None:
+        prompt = tokenizer.bos_token
+    else:
+        prompt = " ".join([tokenizer.bos_token, prompt])
+    decoded_ids = torch.tensor(
+        tokenizer(text=prompt).input_ids,
+        dtype=torch.long).to(device).unsqueeze(0).expand(x.size(0), -1).contiguous()
     model_wrapper = accelerator.unwrap_model(model_wrapper)
     with accelerator.autocast():
-        if prompt is None:
-            decoded_ids = torch.empty((x.size(0), 0), device=x.device, dtype=torch.long)
-        else:
-            decoded_ids = torch.tensor(
-                tokenizer(text=prompt).input_ids,
-                dtype=torch.long).to(device).unsqueeze(0).expand(x.size(0), -1).contiguous()
-
         result = model_wrapper.model.generate(images=x,
                                               prompt_ids=decoded_ids,
                                               temperature=1.0,
                                               max_new_tokens=128,
                                               top_k=16)
-        result = tokenizer.batch_decode(result)
+        # It is possible that BOS = EOS. So remove BOS token
+        result = tokenizer.batch_decode(result[:, 1:])
         reference = tokenizer.batch_decode([label_[label_ != ignore_index]])[0]
 
     accelerator.print('truth', reference, '\n')
@@ -116,6 +117,8 @@ def main(args):
     kwargs = {}
     if tokenizer.eos_token_id is None:
         kwargs['eos_token'] = '<EOS>'
+    if tokenizer.bos_token_id is None:
+        kwargs['bos_token'] = '<BOS>'
     if tokenizer.mask_token_id is None and config.trainer.mask_fraction > 0:
         kwargs['mask_token'] = '<MSK>'
     tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(

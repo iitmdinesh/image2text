@@ -1,6 +1,5 @@
 tokenizer_str: 'gpt2-xl'
-trainer:
-  actual_vocab_size: 50257
+trainer: {}
 optimizers:
   - lr: 6e-4
     # weight_decay: 1e-1
