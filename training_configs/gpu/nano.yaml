@@ -1,14 +1,18 @@
-tokenizer_str: 'gpt2'
-trainer: {}
-  # mask_fraction: 0.0
-  # random_mask_fraction: 0.0
+tokenizer_str: 'gpt2-xl'
+trainer:
+  add_contrastive_loss: True
 optimizers:
+  - lr: 1e-3
+    target_modules:
+      - 'model.encoder.proj.*'
   - lr: 6e-4
-    # weight_decay: 1e-1
-batch_size: 10
-num_steps: 64
-num_val_steps: 8
-gradient_accumulation_steps: 1
+    target_modules:
+      - 'model.decoder.transformer.h.*.cross_attn.*'
+      - 'model.decoder.transformer.wpe.*'  # comment out when soft-prompting is False
+batch_size: 1
+num_steps: 200
+num_val_steps: 20
+gradient_accumulation_steps: 8
 epochs: 1
 #precision: 'no', 'fp8', 'fp16', 'bfp16'
 precision: 'fp16'
@@ -19,10 +23,10 @@ model:
   no_repeat_n_grams: [2, 3, 4, 5]
   loose_match_decoder_state_dict: True
   vision_encoder_config:
-    n_embd_out_vit: 768
+    n_embd_out_vit: 1600
     n_cls: 16
     gate_sizes: [1024]
-    # enable_gradient_checkpointing: True
+    enable_gradient_checkpointing: True
     # input:
     #   n_channels: 3
     #   width: 128
@@ -53,18 +57,19 @@ model:
     #     ff_mult_factor: 2
     #     top_k: 2
   decoder_config:
-    pretrained_model: gpt2
-    n_layer: 12
+    pretrained_model: gpt2-xl
+    enable_gradient_checkpointing: True
+    n_layer: 48
     block_size: 1024
-    vocab_size: 50259
+    vocab_size: 50257
     transformer_config:
       is_cross_attn: True
       attn_config:
         attn_dropout: 0.1
         bias: True
         dropout: 0.1
-        n_head: 12
-        n_embd: 768
+        n_head: 25
+        n_embd: 1600
         attn_type: multi_head
       is_sparse_attn: False
       rotator_config:

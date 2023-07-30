@@ -83,7 +83,8 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
                disable_flash: bool = False,
                reset_moco_after_k_epochs: Optional[List[int]] = None,
                logging_callback=None,
-               chckpt_fname=None):
+               chckpt_fname=None,
+               matchers: List[PatternMatcher] = []):
     model_wrapper.train()
     if isinstance(model_wrapper, nn.parallel.DistributedDataParallel):
         train_step = model_wrapper.module.train_step
@@ -123,15 +124,16 @@ def train_loop(model_wrapper: Union[nn.parallel.DistributedDataParallel,
     if chckpt_fname is not None:
         accelerator.wait_for_everyone()
         unwrapped_model: nn.Module = accelerator.unwrap_model(model_wrapper).model
-        # FIXME: We want to some thing like the following but that wont work in all places (think buffers like pca proj
-        #  matrix
         # since we fine tune large models, we can save some space by doing this
-        # sd = unwrapped_model.state_dict()
-        # to_save = {}
-        # for k, p in unwrapped_model.named_parameters():
-        #     if p.requires_grad:
-        #         to_save[k] = sd[k]
-        accelerator.save(unwrapped_model.state_dict(), smart_open(chckpt_fname, mode='wb'))
+        if len(matchers) > 0:
+            sd = unwrapped_model.state_dict()
+            to_save = {}
+            for k, p in unwrapped_model.named_parameters():
+                if any(matcher.match(k) for matcher in matchers):
+                    to_save[k] = sd[k]
+            accelerator.save(to_save, smart_open(chckpt_fname, mode='wb'))
+        else:
+            accelerator.save(unwrapped_model.state_dict(), smart_open(chckpt_fname, mode='wb'))
     return stop
 
 

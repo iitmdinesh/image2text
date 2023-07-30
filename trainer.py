@@ -141,6 +141,7 @@ def main(args):
     ).to(accelerator.device)
     accelerator.print(model_wrapper.model)
     param_groups = []
+    matchers = []
     for optim_config in config.optimizers:
         if optim_config.target_modules is not None:
             matcher = PatternMatcher(optim_config.target_modules)
@@ -148,7 +149,9 @@ def main(args):
             params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if matcher.match(n)])
             accelerator.print(f'Optimizing the following params:\n{names} with lr={optim_config.lr} and '
                               f'weight_decay={optim_config.weight_decay}')
+            matchers.append(matcher)
         else:
+            assert len(config.optimizers) == 1
             # don't add momentum model params to optimizer state as it will bloat memory footprint
             params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if n.startswith('model.')])
         param_group = {
@@ -175,7 +178,9 @@ def main(args):
             accelerator,
             disable_flash=config.disable_flash,
             reset_moco_after_k_epochs=config.reset_moco_after_k_epochs,
-            chckpt_fname=args.chkpt_file)
+            chckpt_fname=args.chkpt_file,
+            matchers=matchers,
+        )
         if stop:
             break
         eval_model(model_wrapper, accelerator, tokenizer, val_iter, epoch, config.ignore_index)
