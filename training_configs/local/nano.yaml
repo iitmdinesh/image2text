@@ -62,6 +62,8 @@ model:
     pretrained_model: gpt2
     enable_gradient_checkpointing: False
     n_layer: 12
+    # note this is smaller than model's context window of 1024.
+    # so need to include decoder.transformer.wpe.* in the optim state
     block_size: 256
     # 50257 (gpt2 tokenizer)
     vocab_size: 50257

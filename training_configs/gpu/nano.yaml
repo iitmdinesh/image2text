@@ -1,17 +1,18 @@
 tokenizer_str: 'gpt2-large'
-trainer:
-  add_contrastive_loss: True
+trainer: {}
 optimizers:
   - lr: 1e-3
     target_modules:
       - 'encoder.proj.*'
+  - lr: 5e-3
+    target_modules:
+      - 'decoder.transformer.wpe.*'
   - lr: 6e-4
     target_modules:
       - 'decoder.transformer.h.*.cross_attn.*'
-      - 'decoder.transformer.wpe.*'  # comment out when soft-prompting is False
-batch_size: 20
-num_steps: 200
-num_val_steps: 20
+batch_size: 24
+num_steps: 64
+num_val_steps: 8
 gradient_accumulation_steps: 1
 epochs: 1
 # FIXME: issue with model convergence on fp16
@@ -60,6 +61,8 @@ model:
     pretrained_model: gpt2-large
     enable_gradient_checkpointing: True
     n_layer: 36
+    # note this is smaller than model's context window of 1024.
+    # so need to include decoder.transformer.wpe.* in the optim state
     block_size: 256
     vocab_size: 50257
     transformer_config:
