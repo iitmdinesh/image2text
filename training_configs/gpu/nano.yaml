@@ -9,10 +9,10 @@ optimizers:
     target_modules:
       - 'decoder.transformer.h.*.cross_attn.*'
       - 'decoder.transformer.wpe.*'  # comment out when soft-prompting is False
-batch_size: 3
+batch_size: 8
 num_steps: 200
 num_val_steps: 20
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 2
 epochs: 1
 # FIXME: issue with model convergence on fp16
 precision: 'no'
