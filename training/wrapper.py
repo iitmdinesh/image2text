@@ -74,11 +74,8 @@ class ModelTrainerWrapper(nn.Module):
 
     def compute_lm_loss(self, lm_logits, labels, lm_logits_moco=None):
         device = lm_logits.device
-        # shift logits and labels or causal prediction / generation tasks
-        lm_logits = lm_logits[..., :-1, :]
-        if lm_logits_moco is not None:
-            lm_logits_moco = lm_logits_moco[..., :-1, :]
-        shift_labels = labels[..., 1:(lm_logits.size(-2) + 1)].contiguous()
+        # no need to shift labels because input has already been padded
+        shift_labels = labels[..., :lm_logits.size(-2)].contiguous()
         if lm_logits.size(-2) > shift_labels.size(-1):
             lm_logits = lm_logits[..., :shift_labels.size(-1), :].contiguous()
             if lm_logits_moco is not None:

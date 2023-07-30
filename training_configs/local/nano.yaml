@@ -1,12 +1,7 @@
 tokenizer_str: 'gpt2'
 trainer: {}
-  # moco_momentum: 0.9
-  # moco_alpha: 0.4
-  # mask_fraction: 0.15
-  # random_mask_fraction: 0.2
 optimizers:
   - lr: 1e-3
-    weight_decay: 1e-1
     target_modules:
       - 'model.encoder.proj.*'
   - lr: 6e-4
