@@ -8,6 +8,5 @@ transformers
 bitsandbytes
 git+https://github.com/huggingface/peft  # peft bleeding edge version need for kbit training
 smart_open
-scipy
 torchvision
 matplotlib

@@ -1,15 +1,16 @@
 tokenizer_str: 'gpt2'
-trainer:
-  add_contrastive_loss: True
+trainer: {}
 optimizers:
   - lr: 1e-3
     target_modules:
       - 'encoder.proj.*'
+  - lr: 5e-3
+    target_modules:
+      - 'decoder.transformer.wpe.*'
   - lr: 6e-4
     target_modules:
       - 'decoder.transformer.h.*.cross_attn.*'
-      - 'decoder.transformer.wpe.*'  # comment out when soft-prompting is False
-batch_size: 4
+batch_size: 8
 num_steps: 200
 num_val_steps: 20
 gradient_accumulation_steps: 2
