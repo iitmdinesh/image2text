@@ -4,11 +4,11 @@ trainer:
 optimizers:
   - lr: 1e-3
     target_modules:
-      - 'model.encoder.proj.*'
+      - 'encoder.proj.*'
   - lr: 6e-4
     target_modules:
-      - 'model.decoder.transformer.h.*.cross_attn.*'
-      - 'model.decoder.transformer.wpe.*'  # comment out when soft-prompting is False
+      - 'decoder.transformer.h.*.cross_attn.*'
+      - 'decoder.transformer.wpe.*'  # comment out when soft-prompting is False
 batch_size: 4
 num_steps: 200
 num_val_steps: 20

@@ -1,21 +1,21 @@
-tokenizer_str: 'gpt2-xl'
+tokenizer_str: 'gpt2-large'
 trainer:
   add_contrastive_loss: True
 optimizers:
   - lr: 1e-3
     target_modules:
-      - 'model.encoder.proj.*'
+      - 'encoder.proj.*'
   - lr: 6e-4
     target_modules:
-      - 'model.decoder.transformer.h.*.cross_attn.*'
-      - 'model.decoder.transformer.wpe.*'  # comment out when soft-prompting is False
-batch_size: 1
+      - 'decoder.transformer.h.*.cross_attn.*'
+      - 'decoder.transformer.wpe.*'  # comment out when soft-prompting is False
+batch_size: 3
 num_steps: 200
 num_val_steps: 20
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 4
 epochs: 1
-#precision: 'no', 'fp8', 'fp16', 'bfp16'
-precision: 'fp16'
+# FIXME: issue with model convergence on fp16
+precision: 'no'
 model:
   # chkpt_path: 'checkpoints/nano-large-actual-ds-ecommerce-sparse.pt'
   use_cross_attn: True
@@ -57,9 +57,9 @@ model:
     #     ff_mult_factor: 2
     #     top_k: 2
   decoder_config:
-    pretrained_model: gpt2-xl
+    pretrained_model: gpt2-large
     enable_gradient_checkpointing: True
-    n_layer: 48
+    n_layer: 36
     block_size: 1024
     vocab_size: 50257
     transformer_config:
@@ -68,8 +68,8 @@ model:
         attn_dropout: 0.1
         bias: True
         dropout: 0.1
-        n_head: 25
-        n_embd: 1600
+        n_head: 20
+        n_embd: 1280
         attn_type: multi_head
       is_sparse_attn: False
       rotator_config:

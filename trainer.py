@@ -145,15 +145,17 @@ def main(args):
     for optim_config in config.optimizers:
         if optim_config.target_modules is not None:
             matcher = PatternMatcher(optim_config.target_modules)
-            names = ",".join([n for n, p in model_wrapper.named_parameters() if matcher.match(n)])
-            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if matcher.match(n)])
+            names = ",".join([n for n, p in model_wrapper.named_parameters()
+                              if n.split('.', 1)[0] != 'model_m' and matcher.match(n.split('.', 1)[-1])])
+            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters()
+                                       if n.split('.', 1)[0] != 'model_m' and matcher.match(n.split('.', 1)[-1])])
             accelerator.print(f'Optimizing the following params:\n{names} with lr={optim_config.lr} and '
                               f'weight_decay={optim_config.weight_decay}')
             matchers.append(matcher)
         else:
             assert len(config.optimizers) == 1
             # don't add momentum model params to optimizer state as it will bloat memory footprint
-            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if n.startswith('model.')])
+            params = nn.ParameterList([p for n, p in model_wrapper.named_parameters() if not n.startswith('model_m.')])
         param_group = {
             'lr': optim_config.lr,
             'weight_decay': optim_config.weight_decay,
