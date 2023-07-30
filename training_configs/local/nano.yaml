@@ -1,5 +1,6 @@
 tokenizer_str: 'gpt2'
-trainer: {}
+trainer:
+  add_contrastive_loss: True
 optimizers:
   - lr: 1e-3
     target_modules:

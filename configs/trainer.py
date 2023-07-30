@@ -11,6 +11,8 @@ class TrainerWrapperConfig(BaseModel):
     mask_fraction: float = 0.0  # 0.15
     random_mask_fraction: float = 0.0  # 0.2
     eos_token_weight: Optional[float] = None
+    add_contrastive_loss: bool = False  # only makes sense when input and output weights are "tied"
+    training_contrastive_temperature: float = 1.0
 
 
 class OptimizerConfig(BaseModel):

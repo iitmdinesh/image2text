@@ -121,7 +121,7 @@ class VisionEncoderDecoder(nn.Module):
             cross_attn_values = encoder_output
         else:
             cross_attn_values = None
-        logits, _ = self.decoder(
+        logits, hidden_state = self.decoder(
             idx=ids,
             inputs_embeds=inputs_embeds,
             cross_attn_embeds=cross_attn_values,
@@ -130,6 +130,7 @@ class VisionEncoderDecoder(nn.Module):
         return VisionEncoderDecoderModelOutput(
             encoder_output=encoder_output,
             logits=logits[..., offset:, :].contiguous(),
+            hidden_state=hidden_state,
         )
 
     @torch.no_grad()

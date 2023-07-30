@@ -32,12 +32,14 @@ class ModelTrainerWrapper(nn.Module):
         self.tokenizer = tokenizer
         self.ignore_index = ignore_index
         self.temperature = trainer_config.training_temperature
+        self.contrastive_temperature = trainer_config.training_contrastive_temperature
         self.weight_fn = trainer_config.weight_fn
         self.mask_fraction = trainer_config.mask_fraction
         self.random_mask_fraction = trainer_config.random_mask_fraction
         self.eos_token_weight = trainer_config.eos_token_weight
         self.momentum = trainer_config.moco_momentum
         self.alpha = trainer_config.moco_alpha
+        self.add_contrastive_loss = trainer_config.add_contrastive_loss
         self._model_pairs = [[self.model, self.model_m]]
         self.copy_momentum_params()
 
@@ -57,39 +59,31 @@ class ModelTrainerWrapper(nn.Module):
                 assert n1 == n2
                 param_m.data = param_m.data * self.momentum + param.data * (1. - self.momentum)
 
-    def forward(self, x, input_ids, attn_msk=None) -> Tuple[torch.Tensor, torch.Tensor]:
-        output = self.model(images=x, ids=input_ids, attn_msk=attn_msk)
-        return output.logits
+    def target_emb(self, input_ids):
+        return self.model.decoder.get_inputs_embeds(input_ids)
+
+    def forward(self, images, input_ids, attn_msk=None) -> Tuple[torch.Tensor, torch.Tensor]:
+        output = self.model(images=images, ids=input_ids, attn_msk=attn_msk)
+        return output.logits, output.hidden_state
 
     @torch.no_grad()
-    def forward_m(self, x, input_ids, attn_msk=None) -> Tuple[torch.Tensor, torch.Tensor]:
-        output = self.model_m(images=x, ids=input_ids, attn_msk=attn_msk)
-        return output.logits
+    def forward_m(self, images, input_ids, attn_msk=None) -> Tuple[torch.Tensor, torch.Tensor]:
+        output = self.model_m(images=images, ids=input_ids, attn_msk=attn_msk)
+        return output.logits, output.hidden_state
 
-    def train_step(self, x, labels):
-        return self._train_or_val_step_helper(x, labels, True)
+    def train_step(self, images, labels):
+        return self._train_or_val_step_helper(images, labels, True)
 
-    def val_step(self, x, labels):
-        return self._train_or_val_step_helper(x, labels, False)
+    def val_step(self, images, labels):
+        return self._train_or_val_step_helper(images, labels, False)
 
-    def compute_lm_loss(self, lm_logits, labels, lm_logits_moco=None):
-        device = lm_logits.device
-        # no need to shift labels because input has already been padded
-        shift_labels = labels[..., :lm_logits.size(-2)].contiguous()
-        if lm_logits.size(-2) > shift_labels.size(-1):
-            lm_logits = lm_logits[..., :shift_labels.size(-1), :].contiguous()
-            if lm_logits_moco is not None:
-                lm_logits_moco = lm_logits_moco[..., :shift_labels.size(-1), :].contiguous()
-        else:
-            lm_logits = lm_logits.contiguous()
-            if lm_logits_moco is not None:
-                lm_logits_moco = lm_logits_moco.contiguous()
-
+    def get_weights(self, labels):
+        device = labels.device
         if self.weight_fn == 'constant':
-            weights = torch.ones_like(shift_labels, dtype=torch.float)
+            weights = torch.ones_like(labels, dtype=torch.float)
         elif self.weight_fn == 'inverse_sqrt_position':
-            batch_size = lm_logits.size(0)
-            context_length = lm_logits.size(1)
+            batch_size = labels.size(0)
+            context_length = labels.size(1)
             weights = 1.0 / torch.sqrt(torch.arange(1, context_length + 1, dtype=torch.float, device=device).unsqueeze(
                 0).expand(batch_size, -1))
         else:
@@ -97,15 +91,51 @@ class ModelTrainerWrapper(nn.Module):
 
         if self.eos_token_weight is not None:
             # EOS token prediction is important
-            weights[shift_labels == self.tokenizer.eos_token_id] = self.eos_token_weight
-        weights[shift_labels == self.ignore_index] = 0.0
-        weights = (weights / (1e-3 + weights.sum(dim=-1, keepdim=True))) / weights.size(0)
+            weights[labels == self.tokenizer.eos_token_id] = self.eos_token_weight
+        weights[labels == self.ignore_index] = 0.0
+        return (weights / (1e-3 + weights.sum(dim=-1, keepdim=True))) / weights.size(0)
+
+    def compute_contrastive_loss(self, hidden_state, labels):
+        device = hidden_state.device
+        labels = labels[..., :hidden_state.size(-2)].contiguous()
+        if hidden_state.size(-2) > labels.size(-1):
+            hidden_state = hidden_state[..., :labels.size(-1), :].contiguous()
+        else:
+            hidden_state = hidden_state.contiguous()
+        weights = self.get_weights(labels)
+        attn_mask = labels != self.ignore_index
+        hidden_target = self.target_emb(torch.where(attn_mask, labels, torch.zeros_like(labels)))
+
+        predictions = \
+            hidden_state.view(-1, hidden_state.size(-1)) @ hidden_target.view(-1, hidden_target.size(-1)).T
+        predictions = torch.where(attn_mask.view(1, -1),
+                                  predictions,
+                                  -float('inf') * torch.ones_like(predictions))
+        targets = torch.arange(0, predictions.size(0), device=device, dtype=torch.long)
+        losses = F.cross_entropy(predictions / self.contrastive_temperature, targets, reduction='none')
+        # infs are due to empty rows. these have zero weights anyway. so filter them out
+        losses = torch.where(losses.isinf(), torch.zeros_like(losses), losses)
+        return (losses.view(-1) * weights.view(-1)).sum()
+
+    def compute_lm_loss(self, lm_logits, labels, lm_logits_moco=None):
+        # no need to shift labels because input has already been padded
+        labels = labels[..., :lm_logits.size(-2)].contiguous()
+        if lm_logits.size(-2) > labels.size(-1):
+            lm_logits = lm_logits[..., :labels.size(-1), :].contiguous()
+            if lm_logits_moco is not None:
+                lm_logits_moco = lm_logits_moco[..., :labels.size(-1), :].contiguous()
+        else:
+            lm_logits = lm_logits.contiguous()
+            if lm_logits_moco is not None:
+                lm_logits_moco = lm_logits_moco.contiguous()
+
+        weights = self.get_weights(labels)
 
         if lm_logits_moco is not None:
             num_classes = lm_logits.size(-1)
             targets = F.one_hot(
-                torch.where(shift_labels == self.ignore_index, num_classes * torch.ones_like(shift_labels),
-                            shift_labels),
+                torch.where(labels == self.ignore_index, num_classes * torch.ones_like(labels),
+                            labels),
                 num_classes + 1
             )[..., :-1]
             targets_smoothed = self.alpha * F.softmax(lm_logits_moco / self.temperature, dim=-1) + \
@@ -115,12 +145,12 @@ class ModelTrainerWrapper(nn.Module):
 
         # Flatten the tokens
         losses = F.cross_entropy(lm_logits.view(-1, lm_logits.size(-1)) / self.temperature,
-                                 shift_labels.view(-1),
+                                 labels.view(-1),
                                  ignore_index=self.ignore_index,
                                  reduction='none')
         return (losses.view(-1) * weights.view(-1)).sum()
 
-    def _train_or_val_step_helper(self, x, labels, is_train: bool):
+    def _train_or_val_step_helper(self, images, labels, is_train: bool):
         input_ids = torch.where(
             labels != self.ignore_index,
             labels,
@@ -166,13 +196,17 @@ class ModelTrainerWrapper(nn.Module):
         ), dim=1)[:, :sl]
 
         step = 'train' if is_train else 'val'
-        lm_logits = self(x, corrupted_inputs, attn_msk)
+        lm_logits, hidden_state = self(images, corrupted_inputs, attn_msk)
         if self.is_momentum and is_train:
-            lm_logits_moco = self.forward_m(x, corrupted_inputs, attn_msk)
+            lm_logits_moco, _ = self.forward_m(images, corrupted_inputs, attn_msk)
         else:
             lm_logits_moco = None
         loss = self.compute_lm_loss(lm_logits, labels, lm_logits_moco=lm_logits_moco)
         metrics = {f'{step}_loss_lm': loss.detach()}
+        if self.add_contrastive_loss:
+            loss_contrastive = self.compute_contrastive_loss(hidden_state, labels)
+            metrics[f'{step}_loss_contrastive'] = loss_contrastive.detach()
+            loss = loss + loss_contrastive
 
         if is_train:
             self._momentum_update()

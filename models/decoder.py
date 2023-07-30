@@ -237,9 +237,8 @@ class TransformerDecoder(Decoder):
                 x = self.gradient_checkpointed_transformer_block(block, x, cross_attn_inputs, attn_msk)
             else:
                 x = block(x, cross_attn_inputs=cross_attn_inputs, attn_mask=attn_msk)
-        hidden_state = x
         x = self.transformer.ln_f(x)
-        return self.lm_head(x), hidden_state
+        return self.lm_head(x), x
 
     def get_inputs_embeds(self, idx: torch.LongTensor):
         return self.transformer.wte(idx)
