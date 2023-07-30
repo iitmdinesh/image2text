@@ -62,7 +62,7 @@ model:
     pretrained_model: gpt2
     enable_gradient_checkpointing: False
     n_layer: 12
-    block_size: 1024
+    block_size: 256
     # 50257 (gpt2 tokenizer)
     vocab_size: 50257
     transformer_config:

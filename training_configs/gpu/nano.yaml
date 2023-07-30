@@ -60,7 +60,7 @@ model:
     pretrained_model: gpt2-large
     enable_gradient_checkpointing: True
     n_layer: 36
-    block_size: 1024
+    block_size: 256
     vocab_size: 50257
     transformer_config:
       is_cross_attn: True
