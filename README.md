@@ -51,14 +51,14 @@ Labels:
 
 Predictions:
 
-1. A skateboarder doing tricks while playing the skate on skateboards.
-2. A man in shorts and a skateboard jumps over a railing.
-3. A skateboarder performs a jump on the street.
-4. A skateboarder in black boots performs a trick on a skate park.
-5. A skateboarder who has not ridden on a bike.
-6. A skateboarder with a yellow hat and a blue shirt is performing a trick on a skate ramp.
-7. A skateboarder with a skateboarding toy jumps to the side.
-8. A man skateboarding on a skateboard.
+1. A man is skateboarding.
+2. Man playing skateboard.
+3. A woman with blue shirt is skating down a wall.
+4. A rollerblader doing a trick with his wheels.
+5. A man in a black jacket on a skateboard does a jump off a railing.
+6. A man on a skateboard is playing a black skateboarding game at a park.
+7. A skateboarder is performing stunt tricks in front of a graffiti backdrop.
+8. A man with a skateboard sits in front of an orange building.
 
 <img src="assets/dog-snow.png" alt="Goal" width="550"/>
 
@@ -73,12 +73,12 @@ Labels:
 
 Predictions:
 
-1. A dog runs next to a large snow.
-2. A dog running along the snow covered mountains
-3. A dog is standing in the snow.
-4. A white dog playing in the snow
-5. A black dog runs through its snow.
-6. A dog in snow.
-7. A dog runs down muddy hillside with snow on its back.
-8. A small brown dog is running in the snow.
+1. A big dog standing in the snow.
+2. A brown dog is in the snow, on his back.
+3. A brown dog is running across snowy terrain.
+4. A dog playing in the icy snow with a ball.
+5. A dog runs on a snowy road.
+6. A dog jumps in a snowy field.
+7. A dog running in the snow.
+8. A small dog running through snow.
 
