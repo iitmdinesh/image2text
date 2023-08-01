@@ -3,6 +3,17 @@ from pydantic import BaseModel
 from enum import Enum
 
 
+# LORA makes sense when we have a pretrained model that
+# we want to fine-tune in a parameter efficient manner.
+# the above is enforced *silently* in code
+class LoraSpec(BaseModel):
+    r: int = 16
+    lora_alpha: int = 64
+    lora_dropout: float = 0.1
+    target_modules: Optional[List[str]] = None
+    force_enable_update_modules: Optional[List[str]] = None
+
+
 class MLPConfig(BaseModel):
     ff_mult: float
 
@@ -45,16 +56,26 @@ class ImageInputSpec(BaseModel):
     height: int
 
 
-class VisionTransformerEncoderConfig(BaseModel):
+class EncoderConfig(BaseModel):
+    n_cls: int
+    lora_spec: Optional[LoraSpec] = None
+
+
+class VisionTransformerEncoderConfig(EncoderConfig):
     transformer_config: TransformerConfig
     enable_gradient_checkpointing: bool = False
     input: ImageInputSpec
     n_layer: int = 12
-    n_cls: int = 32
     num_patches: int
     n_channels: int
     feature_extractor_gate_sizes: Optional[Tuple[int, ...]] = None
     feature_extractor_kernel_size: Tuple[int, int] = (4, 4)
+
+
+class PretrainedViTConfig(EncoderConfig):
+    refine_base_model: bool = True
+    n_embd_out_vit: int
+    gate_sizes: Optional[Tuple[int, ...]] = None
 
 
 class ModelType(Enum):
@@ -64,51 +85,35 @@ class ModelType(Enum):
     GPT2_XL = "gpt2-xl"
 
 
-class TransformerDecoderConfig(BaseModel):
+class DecoderConfig(BaseModel):
+    lora_spec: Optional[LoraSpec] = None
+    enable_gradient_checkpointing: bool = False
+    vocab_size: int
+
+
+class TransformerDecoderConfig(DecoderConfig):
+    transformer_config: TransformerConfig
     use_advanced_pos_emb: bool = False
     advanced_pos_emb_gate_sizes: Optional[Tuple[int, ...]] = None
     pretrained_model: Optional[ModelType] = None
-    enable_gradient_checkpointing: bool = False
-    n_layer: int = 12
+    n_layer: int
     skip_alternate_cross_attn: bool = True
-    block_size: int = 128
-    vocab_size: int = 50258  # GPT-2 + one extra token: <MSK>
-    transformer_config: TransformerConfig
+    block_size: int
 
 
-class LoraSpec(BaseModel):
-    enable_lora: bool = True
-    r: int = 16
-    lora_alpha: int = 64
-    lora_dropout: float = 0.1
-    target_modules: Optional[List[str]] = None
-    force_enable_update_modules: Optional[List[str]] = None
-
-
-class HuggingfaceDecoderConfig(BaseModel):
-    use_cross_attn: bool = True
-    vocab_size: int = 50257  # pass this in from the tokenizer
-    model_str: str = 'gpt2-medium'
-    extra_tokens: int = 1  # one extra token: <MSK>
-    load_in_4bit: bool = True
-    prepare_for_kbit_training: bool = True
-    enable_gradient_checkpointing: bool = True
-    lora_spec: LoraSpec
-
-
-class ViTConfig(BaseModel):
-    refine_base_model: bool = True
-    n_embd_out_vit: int
-    n_cls: int
-    gate_sizes: Optional[Tuple[int, ...]] = None
+class HuggingfaceDecoderConfig(DecoderConfig):
+    use_cross_attn: bool
+    model_str: str
+    extra_tokens: int
+    load_in_4bit: bool
+    prepare_for_kbit_training: bool
 
 
 class VisionEncoderDecoderConfig(BaseModel):
-    vision_encoder_config: Union[VisionTransformerEncoderConfig, ViTConfig]
+    vision_encoder_config: Union[VisionTransformerEncoderConfig, PretrainedViTConfig]
     decoder_config: Union[TransformerDecoderConfig, HuggingfaceDecoderConfig]
     loose_match_decoder_state_dict: bool = False
     chkpt_path: Optional[str] = None
     use_cross_attn: bool = False
     use_soft_prompting: bool = True
     no_repeat_n_grams: Tuple[int, ...] = (2, 3, 4, 5)
-

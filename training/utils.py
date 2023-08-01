@@ -10,20 +10,7 @@ from smart_open import open as smart_open
 from contextlib import nullcontext
 
 from training.wrapper import ModelTrainerWrapper
-import fnmatch
-
-
-class PatternMatcher:
-    def __init__(self, patterns: Optional[List[str]]):
-        self.patterns = patterns
-
-    def match(self, candidate):
-        if self.patterns is None or len(self.patterns) == 0:
-            return True
-        for pattern in self.patterns:
-            if fnmatch.fnmatch(candidate, pattern):
-                return True
-        return False
+from models.utils import PatternMatcher
 
 
 def normalize_label(input_ids, attn_mask, ignore_index):

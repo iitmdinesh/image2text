@@ -8,9 +8,10 @@ import torch.utils.data
 import yaml
 
 from configs.trainer import TrainingConfig
-from configs.models import ViTConfig
+from configs.models import PretrainedViTConfig
 from training.wrapper import ModelTrainerWrapper
-from training.utils import train_loop, val_loop, WrapperDataLoader, PatternMatcher
+from training.utils import train_loop, val_loop, WrapperDataLoader
+from models.utils import PatternMatcher
 
 from accelerate import Accelerator
 from transformers import AutoTokenizer, PreTrainedTokenizer
@@ -127,7 +128,7 @@ def main(args):
     train_dl, val_dl = get_dataloader(tokenizer,
                                       config.dataloader_buffer_size * config.batch_size,
                                       config.shuffle,
-                                      isinstance(config.model.vision_encoder_config, ViTConfig))
+                                      isinstance(config.model.vision_encoder_config, PretrainedViTConfig))
     train_dl, val_dl = WrapperDataLoader(train_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index,
                                          epochs=config.epochs), \
                        WrapperDataLoader(val_dl, batch_size=config.batch_size, ignore_idx=config.ignore_index,

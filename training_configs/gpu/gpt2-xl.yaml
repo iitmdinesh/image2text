@@ -53,9 +53,8 @@ model:
     prepare_for_kbit_training: True
     enable_gradient_checkpointing: True
     lora_spec:
-      enable_lora: True
       r: 16
       lora_alpha: 64
       lora_dropout: 0.1
       target_modules: ['c_attn', 'mlp.c_fc', 'mlp.c_proj']
-      force_enable_update_modules: ['wpe', 'wte', 'crossattention', 'ln_cross_attn']
+      force_enable_update_modules: ['*.wpe.*', '*.wte.*', '*.crossattention.*', '*.ln_cross_attn.*']

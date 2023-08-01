@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint
 
-from configs.models import VisionTransformerEncoderConfig, ViTConfig
+from configs.models import VisionTransformerEncoderConfig, PretrainedViTConfig
 from models.layers import (
     ConvMLP,
     TransformerBlock,
@@ -15,6 +15,8 @@ from models.layers import (
     LayerNorm,
     AdvancedPositionalBiasMLP,
 )
+from models.utils import get_lora_model
+from peft import TaskType
 from torchvision.models import vit_b_16, ViT_B_16_Weights
 
 
@@ -28,12 +30,18 @@ class Encoder(nn.Module, abc.ABC):
         raise ValueError('Not implemented in base class!')
 
     @classmethod
-    def from_config(cls, config: Union[VisionTransformerEncoderConfig, ViTConfig]):
-        if isinstance(config, ViTConfig):
-            return ViT(config)
+    def from_config(cls, config: Union[VisionTransformerEncoderConfig, PretrainedViTConfig]):
+        if isinstance(config, PretrainedViTConfig):
+            model, pretrained = PretrainedViT(config), True
         elif isinstance(config, VisionTransformerEncoderConfig):
-            return VisionTransformerEncoder(config)
-        raise ValueError('Unknown config')
+            model, pretrained = VisionTransformerEncoder(config), False
+        else:
+            raise ValueError('Unknown config')
+        if pretrained:
+            lora_spec = config.lora_spec
+            return get_lora_model(model, TaskType.FEATURE_EXTRACTION, lora_spec)
+        return model
+
 
     @property
     def num_outputs(self):
@@ -44,8 +52,8 @@ class Encoder(nn.Module, abc.ABC):
         raise ValueError('Not implemented in base class')
 
 
-class ViT(Encoder):
-    def __init__(self, config: ViTConfig):
+class PretrainedViT(Encoder):
+    def __init__(self, config: PretrainedViTConfig):
         super().__init__(config)
         weights = ViT_B_16_Weights.IMAGENET1K_SWAG_LINEAR_V1
         model = vit_b_16(weights=weights)

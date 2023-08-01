@@ -23,13 +23,8 @@ from transformers import (
     PreTrainedModel,
     GPT2LMHeadModel,
 )
-from peft import (
-    LoraConfig,
-    TaskType,
-    get_peft_model,
-    prepare_model_for_kbit_training,
-)
-from models.utils import mutate_transformer_config
+from peft import prepare_model_for_kbit_training, TaskType
+from models.utils import mutate_transformer_config, get_lora_model
 
 
 class Decoder(nn.Module, abc.ABC):
@@ -45,6 +40,7 @@ class Decoder(nn.Module, abc.ABC):
                     space_for_prompt=0):
         if isinstance(config, TransformerDecoderConfig):
             if config.pretrained_model is None:
+                # do not apply lora on this model
                 return TransformerDecoder(config, space_for_prompt)
             model_type = config.pretrained_model
             config_args = {
@@ -113,17 +109,23 @@ class Decoder(nn.Module, abc.ABC):
 
             # finally tie weights of the model
             model.tie_weights()
+
+            lora_spec = config.lora_spec
+            model = get_lora_model(model, TaskType.FEATURE_EXTRACTION, lora_spec)
             return model
 
         elif isinstance(config, HuggingfaceDecoderConfig):
             if config.model_str.startswith('gpt2'):
-                return GPT2HuggingfaceDecoder(config)
+                model = GPT2HuggingfaceDecoder(config)
             elif config.model_str.startswith('tiiuae/falcon'):
-                return FalconHuggingfaceDecoder(config)
+                model = FalconHuggingfaceDecoder(config)
             else:
                 print("Warning! Can use this constructor only if you don't want to do soft prompting in an "
                       "encoder-decoder setup")
-                return HuggingfaceDecoder(config)
+                model = HuggingfaceDecoder(config)
+            lora_spec = config.lora_spec
+            model.backbone = get_lora_model(model.backbone, TaskType.CAUSAL_LM, lora_spec)
+            return model
         else:
             raise ValueError('Unknown config type!!!')
 
@@ -318,25 +320,6 @@ class HuggingfaceDecoder(Decoder, abc.ABC):
         if config.prepare_for_kbit_training:
             model = prepare_model_for_kbit_training(model,
                                                     use_gradient_checkpointing=config.enable_gradient_checkpointing)
-
-        lora_spec = config.lora_spec
-        if lora_spec.enable_lora:
-            lora_config = LoraConfig(
-                r=lora_spec.r,
-                lora_alpha=lora_spec.lora_alpha,
-                lora_dropout=lora_spec.lora_dropout,
-                task_type=TaskType.CAUSAL_LM,
-                inference_mode=False,
-                target_modules=lora_spec.target_modules,
-            )
-            model = get_peft_model(model, lora_config)
-
-            if lora_spec.force_enable_update_modules is not None:
-                for n, p in model.named_parameters():
-                    for pattern in lora_spec.force_enable_update_modules:
-                        if pattern in n:
-                            p.requires_grad = True
-
         self.backbone = model
 
     def tie_weights(self):

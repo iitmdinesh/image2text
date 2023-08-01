@@ -53,9 +53,8 @@ model:
     prepare_for_kbit_training: True
     enable_gradient_checkpointing: True
     lora_spec:
-      enable_lora: True
       r: 16
       lora_alpha: 64
       lora_dropout: 0.1
       target_modules: ['query_key_value', 'dense', 'dense_h_to_4h', 'dense_4h_to_h']  # check if any further targets can be added
-      force_enable_update_modules: ['word_embeddings', 'lm_head']
+      force_enable_update_modules: ['*.word_embeddings.*', '*.lm_head.*']
