@@ -18,9 +18,8 @@ epochs: 1
 # FIXME: issue with model convergence on fp16
 precision: 'no'
 model:
-  # chkpt_path: 'checkpoints/nano-large-actual-ds-ecommerce-sparse.pt'
   use_cross_attn: True
-  use_soft_prompting: True
+  use_soft_prompting: False
   no_repeat_n_grams: [2, 3, 4, 5]
   loose_match_decoder_state_dict: True
   vision_encoder_config:

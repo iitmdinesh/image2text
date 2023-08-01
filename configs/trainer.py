@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from pydantic import BaseModel
 from configs.models import VisionEncoderDecoderConfig
 
@@ -18,6 +18,7 @@ class TrainerWrapperConfig(BaseModel):
 class OptimizerConfig(BaseModel):
     lr: float
     weight_decay: float = 0.0
+    betas: Tuple[float, float] = (0.9, 0.999)
     target_modules: Optional[List[str]] = None
 
 
@@ -37,3 +38,4 @@ class TrainingConfig(BaseModel):
     reset_moco_after_k_epochs: Optional[List[int]] = None
     trainer: TrainerWrapperConfig
     optimizers: List[OptimizerConfig]
+    use_snr_optim: bool = False

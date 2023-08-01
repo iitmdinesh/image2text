@@ -42,7 +42,6 @@ class Encoder(nn.Module, abc.ABC):
             return get_lora_model(model, TaskType.FEATURE_EXTRACTION, lora_spec)
         return model
 
-
     @property
     def num_outputs(self):
         raise ValueError('Not implemented in base class')

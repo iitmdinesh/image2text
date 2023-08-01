@@ -7,6 +7,7 @@ import torch.utils.data
 
 import yaml
 
+from models.optimizer import SNRAdam
 from configs.trainer import TrainingConfig
 from configs.models import PretrainedViTConfig
 from training.wrapper import ModelTrainerWrapper
@@ -160,11 +161,13 @@ def main(args):
         param_group = {
             'lr': optim_config.lr,
             'weight_decay': optim_config.weight_decay,
+            'betas': optim_config.betas,
             'params': params
         }
         param_groups.append(param_group)
 
-    optimizer = torch.optim.AdamW(
+    optim_clazz = SNRAdam if config.use_snr_optim else torch.optim.AdamW
+    optimizer = optim_clazz(
         param_groups,
     )
     model_wrapper, optimizer, train_dl, val_dl = \
