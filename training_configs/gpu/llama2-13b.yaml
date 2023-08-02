@@ -7,7 +7,6 @@ optimizers:
     target_modules:
       - 'encoder*.proj.models.*'
       - 'decoder*lora*'
-      - 'decoder*rotary_emb*'
 batch_size: 4
 gradient_accumulation_steps: 4
 epochs: 1
@@ -36,4 +35,3 @@ model:
       lora_alpha: 64
       lora_dropout: 0.1
       target_modules: ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'up_proj', 'down_proj']
-      force_enable_update_modules: ['*.rotary_emb.*']
