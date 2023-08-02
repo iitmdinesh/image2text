@@ -93,10 +93,10 @@ def get_dataloader(tokenizer, batch_size, shuffle, is_vit):
             result[f'attn_mask_{k}'] = tokenized.attention_mask.squeeze(0)
         return result
 
-    train_dl = ds.query("SELECT * WHERE ROW_NUMBER() < 27000"). \
+    train_dl = ds[:27000]. \
         pytorch(batch_size=batch_size, shuffle=shuffle, num_workers=0, transform=_transform,
                 buffer_size=256, use_local_cache=True)
-    val_dl = ds.query("SELECT * WHERE ROW_NUMBER() >= 27000 "). \
+    val_dl = ds[27000:].query("SELECT * WHERE ROW_NUMBER() >= 27000 "). \
         pytorch(batch_size=batch_size, shuffle=shuffle, num_workers=0, transform=_transform,
                 buffer_size=32, use_local_cache=True)
     return train_dl, val_dl

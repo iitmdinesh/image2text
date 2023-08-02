@@ -51,14 +51,14 @@ Labels:
 
 Predictions:
 
-1. A man is skateboarding.
-2. Man playing skateboard.
-3. A woman with blue shirt is skating down a wall.
-4. A rollerblader doing a trick with his wheels.
-5. A man in a black jacket on a skateboard does a jump off a railing.
-6. A man on a skateboard is playing a black skateboarding game at a park.
-7. A skateboarder is performing stunt tricks in front of a graffiti backdrop.
-8. A man with a skateboard sits in front of an orange building.
+1. A young man is riding his skateboard while wearing a helmet.
+2. Three skateboarders are doing tricks on a sidewalk.
+3. A man skateboarded down some stairs.
+4. Two skateboarders skateboarding on the sidewalk of a park.
+5. A man skateboards down a brick railing on an empty lot.
+6. Three people playing tricks in a park.
+7. A boy skateboarding down stairs.
+8. A man in a black shirt is doing a skate park trick.
 
 <img src="assets/dog-snow.png" alt="Goal" width="550"/>
 
@@ -73,12 +73,12 @@ Labels:
 
 Predictions:
 
-1. A big dog standing in the snow.
-2. A brown dog is in the snow, on his back.
-3. A brown dog is running across snowy terrain.
-4. A dog playing in the icy snow with a ball.
-5. A dog runs on a snowy road.
-6. A dog jumps in a snowy field.
-7. A dog running in the snow.
-8. A small dog running through snow.
+1. A young dog running through snow.
+2. A dog running through snow
+3. A dog on a sled in the snow.
+4. A dog in the snow.
+5. A black dog stands on a snowy side of a trail.
+6. Two small dogs running down the road.
+7. A dog is carrying a small snow pack in a snowy field.
+8. A dog is running in the snow in a field of trees.
 
