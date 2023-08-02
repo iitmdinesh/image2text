@@ -24,7 +24,7 @@ from transformers import (
     GPT2LMHeadModel,
     LlamaForCausalLM,
 )
-from peft import prepare_model_for_kbit_training, TaskType
+from peft import prepare_model_for_kbit_training, TaskType, LoraModel
 from models.utils import mutate_transformer_config, get_lora_model
 
 
@@ -364,6 +364,8 @@ class GPT2HuggingfaceDecoder(HuggingfaceDecoder):
         super().__init__(config)
 
     def get_inputs_embeds(self, idx: torch.LongTensor):
+        if isinstance(self.backbone, LoraModel):
+            return self.backbone.model.transformer.wte(idx)
         return self.backbone.transformer.wte(idx)
 
     @property
@@ -382,7 +384,9 @@ class FalconHuggingfaceDecoder(HuggingfaceDecoder):
         super().__init__(config)
 
     def get_inputs_embeds(self, idx: torch.LongTensor):
-        return self.backbone.transformer.word_embeddings(idx)
+        if isinstance(self.backbone, LoraModel):
+            return self.backbone.model.model.embed_tokens(idx)
+        return self.backbone.model.embed_tokens(idx)
 
     @property
     def block_size(self):
@@ -400,7 +404,9 @@ class Llama2HuggingfaceDecoder(HuggingfaceDecoder):
         super().__init__(config)
 
     def get_inputs_embeds(self, idx: torch.LongTensor):
-        return self.backbone.model.embed_tokens(idx)
+        if isinstance(self.backbone, LlamaForCausalLM):
+            return self.backbone.model.embed_tokens(idx)
+        return self.backbone.model.model.embed_tokens(idx)
 
     @property
     def block_size(self):
