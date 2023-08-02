@@ -7,7 +7,6 @@ optimizers:
     target_modules:
       - 'encoder*.proj.models.*'
       - 'decoder*lora*'
-      -
 batch_size: 4
 gradient_accumulation_steps: 4
 epochs: 1
