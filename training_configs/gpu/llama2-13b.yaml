@@ -2,14 +2,12 @@ tokenizer_str: 'meta-llama/Llama-2-13b-hf'
 trainer: {}
 use_snr_optim: True
 optimizers:
-  - lr: 1e-3
+  - lr: 6e-4
     betas: [0.9, 0.95]
     target_modules:
       - 'encoder*.proj.models.*'
-  - lr: 1e-4
-    betas: [ 0.9, 0.95 ]
-    target_modules:
-      - 'decoder*.lm_head.*'
+      - 'decoder*lora*'
+      -
 batch_size: 4
 gradient_accumulation_steps: 4
 epochs: 1
@@ -33,3 +31,9 @@ model:
     use_auth_token: True
     prepare_for_kbit_training: True
     enable_gradient_checkpointing: True
+    lora_spec:
+      r: 16
+      lora_alpha: 64
+      lora_dropout: 0.1
+      target_modules: ['q_proj', 'k_proj', 'v_proj', 'o_proj', 'up_proj', 'down_proj']
+      force_enable_update_modules: ['*.lm_head.*']
