@@ -7,8 +7,10 @@ optimizers:
     target_modules:
       - 'encoder*.proj.models.*'
       - 'decoder*lora*'
-batch_size: 4
-gradient_accumulation_steps: 4
+batch_size: 8
+gradient_accumulation_steps: 2
+num_steps: 100
+num_val_steps: 10
 epochs: 1
 precision: 'fp16'
 model:
