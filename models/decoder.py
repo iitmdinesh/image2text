@@ -22,6 +22,7 @@ from transformers import (
     BitsAndBytesConfig,
     PreTrainedModel,
     GPT2LMHeadModel,
+    LlamaForCausalLM,
 )
 from peft import prepare_model_for_kbit_training, TaskType
 from models.utils import mutate_transformer_config, get_lora_model
@@ -119,6 +120,8 @@ class Decoder(nn.Module, abc.ABC):
                 model = GPT2HuggingfaceDecoder(config)
             elif config.model_str.startswith('tiiuae/falcon'):
                 model = FalconHuggingfaceDecoder(config)
+            elif config.model_str.startswith('meta-llama/Llama-2'):
+                model: LlamaForCausalLM = Llama2HuggingfaceDecoder(config)
             else:
                 print("Warning! Can use this constructor only if you don't want to do soft prompting in an "
                       "encoder-decoder setup")
@@ -299,6 +302,7 @@ class HuggingfaceDecoder(Decoder, abc.ABC):
                 config.model_str,
                 quantization_config=bnb_config,
                 trust_remote_code=True,
+                use_auth_token=config.use_auth_token,
             ).config
             if hasattr(hf_config, 'add_cross_attention'):
                 hf_config.add_cross_attention = True
@@ -383,6 +387,24 @@ class FalconHuggingfaceDecoder(HuggingfaceDecoder):
     @property
     def block_size(self):
         return 2048
+
+    @property
+    def n_embd(self):
+        return self.hf_config.hidden_size
+
+
+class Llama2HuggingfaceDecoder(HuggingfaceDecoder):
+    def __init__(self, config: HuggingfaceDecoderConfig):
+        assert config.model_str.startswith('meta-llama/Llama-2')
+        assert config.vocab_size >= 32000
+        super().__init__(config)
+
+    def get_inputs_embeds(self, idx: torch.LongTensor):
+        return self.backbone.model.embed_tokens(idx)
+
+    @property
+    def block_size(self):
+        return 4096
 
     @property
     def n_embd(self):

@@ -107,6 +107,7 @@ class HuggingfaceDecoderConfig(DecoderConfig):
     extra_tokens: int
     load_in_4bit: bool
     prepare_for_kbit_training: bool
+    use_auth_token: bool = False
 
 
 class VisionEncoderDecoderConfig(BaseModel):

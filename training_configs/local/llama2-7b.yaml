@@ -1,0 +1,35 @@
+tokenizer_str: 'meta-llama/Llama-2-7b-hf'
+trainer: {}
+use_snr_optim: True
+optimizers:
+  - lr: 1e-3
+    betas: [0.9, 0.95]
+    target_modules:
+      - 'encoder*.proj.models.*'
+  - lr: 1e-4
+    betas: [ 0.9, 0.95 ]
+    target_modules:
+      - 'decoder*.lm_head.*'
+batch_size: 4
+gradient_accumulation_steps: 4
+epochs: 1
+precision: 'no'
+model:
+  use_cross_attn: False
+  use_soft_prompting: True
+  no_repeat_n_grams: [ 2, 3, 4, 5 ]
+  loose_match_decoder_state_dict: True
+  vision_encoder_config:
+    n_embd_out_vit: 4096
+    n_cls: 16
+    gate_sizes: [ 2048 ]
+    refine_base_model: False
+  decoder_config:
+    model_str: 'meta-llama/Llama-2-7b-hf'
+    use_cross_attn: False
+    vocab_size: 32000
+    extra_tokens: 0
+    load_in_4bit: False
+    prepare_for_kbit_training: False
+    enable_gradient_checkpointing: False
+    use_auth_token: True
