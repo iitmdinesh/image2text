@@ -1,15 +1,17 @@
 tokenizer_str: 'gpt2-large'
 trainer: {}
+use_snr_optim: True
 optimizers:
   - lr: 1e-3
+    betas: [0.9, 0.95]
     target_modules:
-      - 'encoder.proj.*'
-  - lr: 5e-3
-    target_modules:
-      - 'decoder.transformer.wpe.*'
+      - 'encoder*.proj.models.*'
+      - 'decoder*.transformer.wpe.*'
   - lr: 6e-4
+    betas: [0.9, 0.95]
     target_modules:
-      - 'decoder.transformer.h.*.cross_attn.*'
+      - 'decoder*.transformer.h.*.cross_attn.*'
+      - 'decoder*.transformer.h.*.ln_3.*'
 batch_size: 24
 num_steps: 64
 num_val_steps: 8
@@ -26,6 +28,7 @@ model:
     n_embd_out_vit: 1600
     n_cls: 16
     gate_sizes: [1024]
+    refine_base_model: False
     enable_gradient_checkpointing: True
     # input:
     #   n_channels: 3

@@ -11,6 +11,7 @@ optimizers:
     betas: [0.9, 0.95]
     target_modules:
       - 'decoder*.transformer.h.*.cross_attn.*'
+      - 'decoder*.transformer.h.*.ln_3.*'
 batch_size: 8
 num_steps: 200
 num_val_steps: 20
@@ -30,6 +31,7 @@ model:
     n_cls: 16
     gate_sizes: [1024]
     refine_base_model: False
+    enable_gradient_checkpointing: True
 #    lora_spec:
 #      r: 16
 #      lora_alpha: 64
