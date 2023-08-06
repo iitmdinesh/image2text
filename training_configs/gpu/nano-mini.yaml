@@ -58,6 +58,7 @@ model:
     vocab_size: 50258   # 50257 + 1
     transformer_config:
       is_cross_attn: True
+      is_causal: True
       attn_config:
         attn_dropout: 0.1
         bias: True

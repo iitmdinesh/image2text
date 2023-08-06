@@ -65,6 +65,7 @@ model:
     enable_gradient_checkpointing: True
     transformer_config:
       is_cross_attn: True
+      is_causal: True
       attn_config:
         attn_dropout: 0.1
         bias: True

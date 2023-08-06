@@ -21,7 +21,7 @@ epochs: 1
 precision: 'no'
 #reset_moco_after_k_epochs: [1, 2]
 model:
-  # chkpt_path: 'checkpoints/nano.pt'
+  chkpt_path: 'checkpoints/nano.pt'
   use_cross_attn: True
   use_soft_prompting: False
   no_repeat_n_grams: [2, 3, 4, 5]
@@ -79,6 +79,7 @@ model:
     vocab_size: 50257
     transformer_config:
       is_cross_attn: True
+      is_causal: True
       attn_config:
         attn_dropout: 0.1
         bias: True
