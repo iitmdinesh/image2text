@@ -378,7 +378,7 @@ class TransformerBlock(nn.Module):
             device = x.device
             attn_mask_causal = torch.ones((L, L), device=device, dtype=torch.bool).tril(diagonal=0)
             attn_mask_causal = repeat(
-                attn_mask_causal.masked_fill(~attn_mask_causal, -float('inf')).float(),
+                attn_mask_causal.float().masked_fill(~attn_mask_causal, -float('inf')),
                 's l -> b h s l', b=1, h=1
             )
         else:
