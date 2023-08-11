@@ -1,11 +1,12 @@
 from typing import Optional, Tuple
 
 import math
+import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+
 from einops import rearrange, repeat
 from models.functions import normalize_gradients
 from configs.models import (
@@ -15,6 +16,63 @@ from configs.models import (
     MoEConfig,
     SelfAttentionType,
 )
+
+
+class CosineVectorEmbedding(nn.Module):
+    """
+    LSH based vector embedding for highly non-linear ops
+    """
+
+    def __init__(self, inp_dim: int, emb_dim: int, n_proj: int = 16, num_bins: int = 20):
+        super().__init__()
+        self.register_buffer(
+            'projection_mat',
+            F.normalize(torch.randn((inp_dim, n_proj)), p=2.0, dim=0),
+            persistent=True,
+        )
+        resolution = 2.0 / num_bins
+        self.register_buffer(
+            'grid',
+            torch.linspace(-1, 1, num_bins + 1)[:-1] + 0.5 * resolution,
+            persistent=True,
+        )
+        self.register_buffer(
+            'pos_offset',
+            ((num_bins + 1) * torch.arange(0, n_proj, dtype=torch.long)).long().reshape(-1, 1, 1),
+            persistent=True,
+        )
+        self.emb = nn.EmbeddingBag((num_bins + 1) * n_proj, emb_dim)
+        self.emb_dim = emb_dim
+        self.n_proj = n_proj
+
+    def forward(self, x):
+        bs, seq_len, emb_dim = x.size()
+        z = F.normalize(x, p=2.0, dim=-1) @ self.projection_mat
+        z = torch.bucketize(z, self.grid).transpose(0, -1)
+        z = (z + self.pos_offset).transpose(0, -1).contiguous()
+        return self.emb(z.view(-1, self.n_proj)).reshape(bs, seq_len, self.emb_dim)
+
+
+class CompositeCosineVectorEmbedding(nn.Module):
+    """
+    LSH based vector indexer for highly non-linear ops
+    """
+
+    def __init__(self, inp_dim: int, emb_dim: int, num_bins: Tuple[int, ...], n_proj: int = 16):
+        super().__init__()
+        self.emb = nn.ModuleList([
+            CosineVectorEmbedding(inp_dim, emb_dim, n_proj, num_bins=k) for k in num_bins
+        ])
+
+    def forward(self, x):
+        x = x.unsqueeze(1)
+        result = torch.empty((0,), device=x.device)
+        for k, mod in enumerate(self.emb):
+            if k == 0:
+                result = mod(x)
+            else:
+                result = result + mod(x)
+        return result.squeeze(1)
 
 
 class MLP(nn.Module):

@@ -14,6 +14,7 @@ from models.layers import (
     LayerNormND,
     LayerNorm,
     AdvancedPositionalBiasMLP,
+    CompositeCosineVectorEmbedding,
 )
 from models.utils import get_lora_model
 from peft import TaskType
@@ -59,19 +60,35 @@ class PretrainedViT(Encoder):
         model.heads = nn.Identity()
         self.out_dim = config.n_embd_out_vit
         self.n_cls = config.n_cls
+        self.use_lsh = config.lsh_config is not None
         self.proj = AdvancedPositionalBiasMLP(context_width=config.n_cls,
                                               in_features=768,
                                               out_features=config.n_embd_out_vit,
                                               gate_sizes=config.gate_sizes,
-                                              add_residual_connection=True)
+                                              add_residual_connection=True) \
+            if not self.use_lsh else nn.Identity()
         self.model = model
-        self.refine = config.refine_base_model
+        self.refine = config.refine_base_model if not self.use_lsh else False
+        if self.use_lsh:
+            assert config.lsh_config is not None
+            self.lsh_emb = nn.ModuleList([
+                CompositeCosineVectorEmbedding(
+                    768,
+                    config.n_embd_out_vit,
+                    config.lsh_config.num_bins,
+                    config.lsh_config.num_proj
+                ) for _ in range(self.n_cls)
+            ])
+        else:
+            self.lsh_emb = nn.ModuleList([nn.Identity()])
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         x = self.model(images)
-        x = F.normalize(x, p=2.0, dim=-1)
         if not self.refine:
             x = x.detach()
+        if self.use_lsh:
+            return torch.stack([mod(x) for mod in self.lsh_emb], dim=1)
+        x = F.normalize(x, p=2.0, dim=-1)
         return F.normalize(self.proj(x.unsqueeze(-2).expand(-1, self.n_cls, -1).contiguous()), p=2.0, dim=-1)
 
     @property

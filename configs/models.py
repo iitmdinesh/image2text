@@ -56,6 +56,11 @@ class ImageInputSpec(BaseModel):
     height: int
 
 
+class LshConfig(BaseModel):
+    num_bins: Tuple[int, ...]
+    num_proj: int
+
+
 class EncoderConfig(BaseModel):
     n_cls: int
     lora_spec: Optional[LoraSpec] = None
@@ -75,6 +80,7 @@ class VisionTransformerEncoderConfig(EncoderConfig):
 class PretrainedViTConfig(EncoderConfig):
     refine_base_model: bool = True
     n_embd_out_vit: int
+    lsh_config: Optional[LshConfig] = None
     gate_sizes: Optional[Tuple[int, ...]] = None
 
 
