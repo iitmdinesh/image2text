@@ -59,6 +59,7 @@ class ImageInputSpec(BaseModel):
 class LshConfig(BaseModel):
     num_bins: Tuple[int, ...]
     num_proj: int
+    learnable: bool
 
 
 class EncoderConfig(BaseModel):

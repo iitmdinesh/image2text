@@ -76,7 +76,8 @@ class PretrainedViT(Encoder):
                     768,
                     config.n_embd_out_vit,
                     config.lsh_config.num_bins,
-                    config.lsh_config.num_proj
+                    config.lsh_config.num_proj,
+                    config.lsh_config.learnable,
                 ) for _ in range(self.n_cls)
             ])
         else:

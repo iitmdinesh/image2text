@@ -53,15 +53,68 @@ class CosineVectorEmbedding(nn.Module):
         return self.emb(z.view(-1, self.n_proj)).reshape(bs, seq_len, self.emb_dim)
 
 
+class CosineLinear(nn.Module):
+    def __init__(self, inp_dim, out_dim):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn((out_dim, inp_dim)) / math.sqrt(inp_dim))
+
+    def forward(self, x):
+        return F.linear(F.normalize(x, p=2.0, dim=-1), F.normalize(self.weight, p=2.0, dim=-1))
+
+
+class LearnableCosineVectorEmbedding(nn.Module):
+    """
+    Learnable LSH based vector indexer for highly non-linear ops
+    """
+
+    def __init__(self,
+                 inp_dim: int,
+                 emb_dim: int,
+                 n_proj: int = 16,
+                 num_bins: int = 20,
+                 sigma_inflation_factor: float = 1.0,
+                 top_k: Optional[int] = None):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.n_proj = n_proj
+        self.num_bins = num_bins
+        self.top_k = None if top_k is None else min(top_k, num_bins)
+        self.sigma2 = (sigma_inflation_factor * 2.0 / num_bins) ** 2
+        self.proj = CosineLinear(inp_dim, n_proj)
+        self.mean = nn.Parameter(2 * torch.rand((1, 1, n_proj, num_bins)) - 1)
+        self.emb = nn.Linear(self.n_proj * self.num_bins, emb_dim, bias=False)
+
+    def forward(self, x):
+        bs, seq_len, _ = x.shape
+        z = self.gaussian_kernel(self.proj(x))
+        return self.emb(z.view(bs, seq_len, self.n_proj * self.num_bins))
+
+    def gaussian_kernel(self, x):
+        diff = x.unsqueeze(-1) - self.mean
+        act = torch.exp(-0.5 * diff * diff / self.sigma2)
+        out = act.clone()
+        if self.top_k is not None:
+            # useful for compression
+            top_k, _ = torch.topk(act, k=self.top_k, dim=-1, largest=True, sorted=True)
+            out[act < top_k[..., -1].unsqueeze(-1)] = 0.0
+        return F.normalize(out, p=2.0, dim=-1)
+
+
 class CompositeCosineVectorEmbedding(nn.Module):
     """
     LSH based vector indexer for highly non-linear ops
     """
 
-    def __init__(self, inp_dim: int, emb_dim: int, num_bins: Tuple[int, ...], n_proj: int = 16):
+    def __init__(self,
+                 inp_dim: int,
+                 emb_dim: int,
+                 num_bins: Tuple[int, ...],
+                 n_proj: int,
+                 learnable: bool):
         super().__init__()
+        lsh_clazz = LearnableCosineVectorEmbedding if learnable else CosineVectorEmbedding
         self.emb = nn.ModuleList([
-            CosineVectorEmbedding(inp_dim, emb_dim, n_proj, num_bins=k) for k in num_bins
+            lsh_clazz(inp_dim=inp_dim, emb_dim=emb_dim, n_proj=n_proj, num_bins=k) for k in num_bins
         ])
 
     def forward(self, x):
