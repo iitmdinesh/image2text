@@ -87,6 +87,6 @@ class VisionEncoderDecoderTest(unittest.TestCase):
         self.assertEqual((96, 24, 64), outs.encoder_output.shape)
         self.assertEqual((96, 192, 1024), outs.logits.shape)
 
-        generated_ids = model.generate(inp[:2], ids[:2], max_new_tokens=16, temperature=1.0, top_k=16)
+        generated_ids = model.generate(inp[:2], ids[:2], max_new_tokens=16, temperature=1.0, nucleus_p=0.5)
 
         self.assertEqual((2, 192 + 16), generated_ids.shape)

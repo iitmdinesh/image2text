@@ -134,7 +134,7 @@ class VisionEncoderDecoder(nn.Module):
         )
 
     @torch.no_grad()
-    def generate(self, images, prompt_ids, max_new_tokens=128, temperature=1.0, top_k=None) -> \
+    def generate(self, images, prompt_ids, max_new_tokens=128, temperature=1.0, top_k=None, nucleus_p=None) -> \
             torch.LongTensor:
         blk_size = self.decoder.block_size - self.space_for_prompt
         assert max_new_tokens <= blk_size - prompt_ids.size(-1)
@@ -157,8 +157,25 @@ class VisionEncoderDecoder(nn.Module):
                 logits[logits < v[..., [-1]]] = -float('inf')
             # apply softmax to convert logits to (normalized) probabilities
             probs = logits.softmax(dim=-1)
-            # sample from the distribution
-            idx_next = torch.multinomial(probs, num_samples=1)
+            if nucleus_p is not None:
+                # Apply nucleus (top-p) sampling
+                sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+                # Find the indices to truncate based on nucleus_p while ensuring at least one nnz
+                threshold_p = torch.maximum(nucleus_p * torch.ones_like(sorted_probs[:, 0]), sorted_probs[:, 0]). \
+                    unsqueeze(1)
+                batch_idx, vocab_idx = (cumulative_probs > threshold_p).nonzero(as_tuple=True)
+
+                sorted_probs[batch_idx, vocab_idx] = 0
+                sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+
+                # Sample from the truncated distribution
+                sampled_index = torch.multinomial(sorted_probs, num_samples=1)
+                idx_next = sorted_indices.gather(dim=-1, index=sampled_index)
+            else:
+                # sample from the distribution
+                idx_next = torch.multinomial(probs, num_samples=1)
             # append sampled index to the running sequence and continue
             decoder_ids = torch.cat((decoder_ids, idx_next), dim=-1)
 

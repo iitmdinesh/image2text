@@ -51,9 +51,9 @@ def eval_model(model_wrapper: Union[nn.parallel.DistributedDataParallel, ModelTr
     with accelerator.autocast():
         result = model_wrapper.model.generate(images=x,
                                               prompt_ids=decoded_ids,
-                                              temperature=1.0,
+                                              temperature=0.7,
                                               max_new_tokens=128,
-                                              top_k=16)
+                                              nucleus_p=0.6)
         # It is possible that BOS = EOS. So remove BOS token
         result = tokenizer.batch_decode(result[:, 1:])
         reference = tokenizer.batch_decode([label_[label_ != ignore_index]])[0]
