@@ -23,7 +23,7 @@ class MoEConfig(BaseModel):
     proj_features: int
     ff_mult_factor: float
     gate_sizes: Optional[Tuple[int, ...]] = None
-    top_k: Optional[int] = None
+    top_k: int = 1
 
 
 class SelfAttentionType(Enum):

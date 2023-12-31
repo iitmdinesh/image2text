@@ -221,13 +221,13 @@ class MoELinear(nn.Module):
                  proj_features: int,
                  num_experts: int,
                  bias: bool = True,
-                 top_k: Optional[int] = None,
+                 top_k: int = 1,
                  gate_sizes: Optional[Tuple[int, ...]] = None):
         """
         :param in_features: input number of units
         :param out_features: output number of units
         :param proj_features: number of units in the intermediate projection matrix (used to reduce model size)
-        :param num_experts: number of experts (typical values in the range 2 - 4)
+        :param num_experts: number of experts
         """
         super().__init__()
         self._in_features = in_features
@@ -237,19 +237,22 @@ class MoELinear(nn.Module):
         self.top_k = top_k
 
     def forward(self, x):
-        expert_gate_values = (self.expert_gates(x) / math.sqrt(self._in_features))
-        if self.top_k is not None:
-            v, _ = torch.topk(expert_gate_values, min(self.top_k, expert_gate_values.size(-1)), dim=-1, sorted=True)
-            # use the smallest of the top_k to trim
-            expert_gate_values[expert_gate_values < v[..., [-1]]] = -float('inf')
-        expert_gate_values = expert_gate_values.softmax(dim=-1)
-        expert_outputs = []
-        for mod in self.experts:
-            expert_outputs.append(mod(x))
-        expert_outputs = torch.stack(expert_outputs, dim=-2)
-        orig_shape = expert_gate_values.size()
-        gates = expert_gate_values.unsqueeze(-1).expand(*orig_shape, self._out_features)
-        return (expert_outputs * gates).sum(dim=-2)
+        # implementation taken partially from https://github.com/dzhulgakov/llama-mistral
+        in_shape = x.shape
+        out_shape = in_shape[:-1] + (self._out_features,)
+        x = x.view(-1, self._in_features)
+        expert_gate_values = (self.expert_gates(x) / math.sqrt(self._in_features)).softmax(dim=-1)
+
+        # Note expert weights won't add to one and this enables gradient flow even when top_k = 1
+        # See https://arxiv.org/abs/2101.03961 for the special case when top_k = 1
+        expert_weights, expert_indices = torch.topk(expert_gate_values, self.top_k, dim=-1)
+        flat_expert_indices = expert_indices.view(-1)
+        x = x.repeat_interleave(self.top_k, dim=0)
+        y = torch.empty(*(x.shape[:-1] + (self._out_features,)), device=x.device)
+        for i, expert in enumerate(self.experts):
+            y[flat_expert_indices == i] = expert(x[flat_expert_indices == i])
+        y = (y.view(*expert_weights.shape, -1) * expert_weights.unsqueeze(-1)).sum(dim=1)
+        return y.view(*out_shape)
 
 
 class LayerNorm(nn.Module):
