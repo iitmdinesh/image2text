@@ -5,7 +5,7 @@ optimizers:
   - lr: 1e-3
     betas: [0.9, 0.95]
     target_modules:
-      - 'encoder*.proj.models.*'
+      - 'encoder*.peer*'
       - 'decoder*.transformer.wpe.*'
   - lr: 6e-4
     betas: [0.9, 0.95]
@@ -26,10 +26,15 @@ model:
   loose_match_decoder_state_dict: True
   vision_encoder_config:
     n_embd_out_vit: 1600
-    n_cls: 16
-    gate_sizes: [1024]
+    n_cls: 8
+    # gate_sizes: [1024]
     refine_base_model: False
     enable_gradient_checkpointing: True
+    peer_config:
+        num_units_sqrt: 256
+        topk: 8
+        nhead: 4
+        query_dim: 128
     # input:
     #   n_channels: 3
     #   width: 128

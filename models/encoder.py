@@ -15,6 +15,7 @@ from models.layers import (
     LayerNorm,
     AdvancedPositionalBiasMLP,
     CompositeCosineVectorEmbedding,
+    PeerLookup,
 )
 from models.utils import get_lora_model
 from peft import TaskType
@@ -60,15 +61,36 @@ class PretrainedViT(Encoder):
         model.heads = nn.Identity()
         self.out_dim = config.n_embd_out_vit
         self.n_cls = config.n_cls
-        self.use_lsh = config.lsh_config is not None
+        self.use_peer = config.peer_config is not None
+        self.use_lsh = not self.use_peer and config.lsh_config is not None
         self.proj = AdvancedPositionalBiasMLP(context_width=config.n_cls,
                                               in_features=768,
                                               out_features=config.n_embd_out_vit,
                                               gate_sizes=config.gate_sizes,
                                               add_residual_connection=True) \
-            if not self.use_lsh else nn.Identity()
+            if not (self.use_lsh or self.use_peer) else nn.Identity()
         self.model = model
         self.refine = config.refine_base_model if not self.use_lsh else False
+        if self.use_peer:
+            assert config.peer_config is not None
+            self.peer = PeerLookup(
+                768,
+                config.n_embd_out_vit,
+                config.peer_config.num_units_sqrt ** 2,
+                config.peer_config.topk,
+                config.peer_config.nhead,
+                config.peer_config.query_dim,
+            )
+            self.peer_proj_wt = nn.Parameter(
+                torch.randn((768, 768, self.n_cls)) / math.sqrt(768),
+                requires_grad=True,
+            )
+        else:
+            self.peer = nn.Identity()
+            self.peer_proj_wt = nn.Parameter(
+                torch.zeros((1,)),
+                requires_grad=False,
+            )
         if self.use_lsh:
             assert config.lsh_config is not None
             self.lsh_emb = nn.ModuleList([
@@ -87,7 +109,9 @@ class PretrainedViT(Encoder):
         x = self.model(images)
         if not self.refine:
             x = x.detach()
-        if self.use_lsh:
+        if self.use_peer:
+            return self.peer(torch.einsum("bd,des->bse", x, self.peer_proj_wt))
+        elif self.use_lsh:
             return torch.stack([mod(x) for mod in self.lsh_emb], dim=1)
         x = F.normalize(x, p=2.0, dim=-1)
         return F.normalize(self.proj(x.unsqueeze(-2).expand(-1, self.n_cls, -1).contiguous()), p=2.0, dim=-1)
