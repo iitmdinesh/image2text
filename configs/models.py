@@ -62,6 +62,13 @@ class LshConfig(BaseModel):
     learnable: bool
 
 
+class PeerConfig(BaseModel):
+    num_units_sqrt: int
+    topk: int
+    nhead: int
+    query_dim: Optional[int] = None
+
+
 class EncoderConfig(BaseModel):
     n_cls: int
     lora_spec: Optional[LoraSpec] = None
@@ -81,6 +88,7 @@ class VisionTransformerEncoderConfig(EncoderConfig):
 class PretrainedViTConfig(EncoderConfig):
     refine_base_model: bool = True
     n_embd_out_vit: int
+    peer_config: Optional[PeerConfig] = None
     lsh_config: Optional[LshConfig] = None
     gate_sizes: Optional[Tuple[int, ...]] = None
 

@@ -18,6 +18,97 @@ from configs.models import (
 )
 
 
+class PeerLookupQueryUnit(nn.Module):
+    def __init__(
+        self,
+        num_embed: int,
+        emb_dim: int,
+        topk: int
+    ) -> None:
+        super().__init__()
+        self.linear = nn.Linear(emb_dim, num_embed, bias=False)
+        self.topk = topk
+
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        topk = torch.topk(self.linear(x), k=self.topk, dim=-1)
+        return topk.values, topk.indices
+
+
+class PeerLookup(nn.Module):
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        num_units: int,
+        topk: int,
+        nhead: int = 1,
+        query_dim: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+        self.query_dim: int = query_dim or (in_features // 2)
+        self.residual = nn.Linear(in_features, out_features, bias=False)
+        self.query_linear = nn.Linear(in_features, self.query_dim * nhead, bias=False)
+        self.key_linear = nn.Linear(in_features, in_features * nhead, bias=False)
+        self.nhead = nhead
+        self.num_query_units = int(math.sqrt(num_units))
+        self.topk = topk
+        if self.num_query_units * self.num_query_units != num_units:
+            raise ValueError(
+                f"num_units must be a perfect square but {num_units} was not"
+            )
+        self.query_left = PeerLookupQueryUnit(
+            self.num_query_units,
+            self.query_dim,
+            topk,
+        )
+        self.query_right = PeerLookupQueryUnit(
+            self.num_query_units,
+            self.query_dim,
+            topk,
+        )
+        self.emb_in = nn.Embedding(num_units, in_features)
+        self.emb_out = nn.Embedding(num_units, out_features)
+        self.act = nn.GELU(approximate="tanh")
+
+    def forward(self, inp: torch.Tensor) -> torch.Tensor:
+        bs, seq_len, in_features = inp.shape
+        x = self.query_linear(inp).view(bs, seq_len, -1, self.query_dim)
+        inp_proj = self.key_linear(inp).view(bs, seq_len, -1, in_features)
+        residual = self.residual(inp)
+
+        left_v, left_i = self.query_left(x)
+        right_v, right_i = self.query_right(x)
+
+        cross = (left_v.unsqueeze(-1) + right_v.unsqueeze(-2)).view(
+            bs, seq_len, -1, self.topk * self.topk
+        )
+        y = torch.topk(cross, k=self.topk, dim=-1)
+        dot, indices = y.values, y.indices
+        scores = F.softmax(dot, dim=-1)  # (b, s, h, k)
+
+        left_i_selected = indices // self.topk
+        right_i_selected = indices % self.topk
+        left_i_trimmed = left_i.gather(-1, left_i_selected)
+        right_i_trimmed = right_i.gather(-1, right_i_selected)
+
+        final_indices = (
+            left_i_trimmed * self.topk
+            + right_i_trimmed
+        )  # (b, s, h, k)
+
+        inp_expert = self.emb_in(final_indices)
+        out_expert = self.emb_out(final_indices)
+
+        in_dot = torch.einsum("bshkd,bshd->bshk", inp_expert, inp_proj)
+        in_act = self.act(in_dot)  # (b, s, h, k)
+
+        final_weight = scores * in_act
+        return (
+            torch.einsum("bshk,bshkd->bsd", final_weight, out_expert)
+            + residual
+        )
+
+
 class CosineVectorEmbedding(nn.Module):
     """
     LSH based vector embedding for highly non-linear ops
