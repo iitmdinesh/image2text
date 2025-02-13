@@ -1,12 +1,13 @@
 torch
 einops
-deeplake
+deeplake<=3.9.39
 accelerate
 pydantic
 pyyaml
 transformers
 bitsandbytes
-git+https://github.com/huggingface/peft  # peft bleeding edge version need for kbit training
+peft
 smart_open
 torchvision
 matplotlib
+azure-storage-blob

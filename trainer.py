@@ -110,7 +110,7 @@ def main(args):
         split_batches=True,
         mixed_precision=config.precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        even_batches=True,
+        # even_batches=True,
     )
 
     accelerator.print(config)

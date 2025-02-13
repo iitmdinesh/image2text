@@ -1,0 +1,35 @@
+tokenizer_str: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B'
+trainer: {}
+use_snr_optim: False
+optimizers:
+  - lr: 1e-3
+    betas: [0.9, 0.95]
+    target_modules:
+      - 'encoder*.proj.models.*'
+  - lr: 1e-4
+    betas: [ 0.9, 0.95 ]
+    target_modules:
+      - 'decoder*.lm_head.*'
+batch_size: 4
+gradient_accumulation_steps: 4
+epochs: 1
+precision: 'bf16'
+model:
+  use_cross_attn: False
+  use_soft_prompting: True
+  no_repeat_n_grams: [ 2, 3, 4, 5 ]
+  loose_match_decoder_state_dict: True
+  vision_encoder_config:
+    n_embd_out_vit: 4096
+    n_cls: 16
+    gate_sizes: [ 2048 ]
+    refine_base_model: False
+  decoder_config:
+    model_str: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B'
+    use_cross_attn: False
+    vocab_size: 151936
+    extra_tokens: 0
+    load_in_4bit: False
+    prepare_for_kbit_training: False
+    enable_gradient_checkpointing: True
+    use_auth_token: True

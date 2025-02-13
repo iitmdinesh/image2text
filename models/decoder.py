@@ -23,6 +23,7 @@ from transformers import (
     PreTrainedModel,
     GPT2LMHeadModel,
     LlamaForCausalLM,
+    Qwen2ForCausalLM,
 )
 from peft import prepare_model_for_kbit_training, TaskType, LoraModel
 from models.utils import mutate_transformer_config, get_lora_model
@@ -122,6 +123,8 @@ class Decoder(nn.Module, abc.ABC):
                 model = FalconHuggingfaceDecoder(config)
             elif config.model_str.startswith('meta-llama/Llama-2'):
                 model: LlamaForCausalLM = Llama2HuggingfaceDecoder(config)
+            elif "Qwen" in config.model_str:
+                model: Qwen2ForCausalLM = Qwen2HuggingfaceDecoder(config)
             else:
                 print("Warning! Can use this constructor only if you don't want to do soft prompting in an "
                       "encoder-decoder setup")
@@ -411,6 +414,26 @@ class Llama2HuggingfaceDecoder(HuggingfaceDecoder):
     @property
     def block_size(self):
         return 4096
+
+    @property
+    def n_embd(self):
+        return self.hf_config.hidden_size
+
+
+class Qwen2HuggingfaceDecoder(HuggingfaceDecoder):
+    def __init__(self, config: HuggingfaceDecoderConfig):
+        assert 'Qwen' in config.model_str
+        assert config.vocab_size >= 151936
+        super().__init__(config)
+
+    def get_inputs_embeds(self, idx: torch.LongTensor):
+        if isinstance(self.backbone, Qwen2ForCausalLM):
+            return self.backbone.model.embed_tokens(idx)
+        return self.backbone.model.model.embed_tokens(idx)
+
+    @property
+    def block_size(self):
+        return self.hf_config.max_position_embeddings
 
     @property
     def n_embd(self):

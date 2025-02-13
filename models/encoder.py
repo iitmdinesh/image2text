@@ -106,9 +106,11 @@ class PretrainedViT(Encoder):
             self.lsh_emb = nn.ModuleList([nn.Identity()])
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
-        x = self.model(images)
         if not self.refine:
-            x = x.detach()
+            with torch.no_grad():
+                x = self.model(images)
+        else:
+            x = self.model(images)
         if self.use_peer:
             return self.peer(torch.einsum("bd,des->bse", x, self.peer_proj_wt))
         elif self.use_lsh:
